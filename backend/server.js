@@ -14,7 +14,7 @@ const gateRoutes = require('./routes/gates');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8099;
 
 // Enable CORS with development origin allowlist
 const corsOptions = {
@@ -99,114 +99,7 @@ app.post('/api/admin/verify', async (req, res) => {
   }
 });
 
-// Serves main HTML pages for user site
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/index.html'));
-});
 
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/login.html'));
-});
-
-app.get('/register', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/register.html'));
-});
-
-app.get('/login-callback', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/login-callback.html'));
-});
-
-app.get('/login-callback.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/login-callback.html'));
-});
-
-app.get('/flight-status', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/flight-status.html'));
-});
-
-app.get('/gates', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/gates.html'));
-});
-
-app.get('/my-flights', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/my-flights.html'));
-});
-
-app.get('/airports', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/airports.html'));
-});
-
-app.get('/travel-tools', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/travel-tools.html'));
-});
-
-app.get('/about', (req, res) => {
-  res.redirect('/');
-});
-
-// Serves admin pages on clean routes
-app.get('/admin/login', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/login.html'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/index.html'));
-});
-
-app.get('/admin/flights', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/flights.html'));
-});
-
-app.get('/admin/gates', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/gates.html'));
-});
-
-app.get('/admin/disruptions', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/disruptions.html'));
-});
-
-app.get('/admin/simulator', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/simulator.html'));
-});
-
-app.get('/admin/announcements', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/announcements.html'));
-});
-
-app.get('/admin/schedule', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/schedule.html'));
-});
-
-app.get('/admin/activity', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/activity.html'));
-});
-
-app.get('/admin/administrators', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/administrators.html'));
-});
-
-app.get('/admin/settings', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/settings.html'));
-});
-
-app.get('/auth-helper.js', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/auth-helper.js'));
-});
-
-app.get('/supabase-config.js', (req, res) => {
-  res.setHeader('Content-Type', 'application/javascript');
-  res.send(`
-    window.SUPABASE_URL = "${process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''}";
-    window.SUPABASE_ANON_KEY = "${process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''}";
-  `);
-});
-
-// Serve static assets (CSS, JS, images)
-// Serve admin assets under /admin prefix so they don't clash with user root files
-app.use('/admin', express.static(path.join(__dirname, '../frontend/admin')));
-
-// Serve user assets at root
-app.use(express.static(path.join(__dirname, '../frontend/user')));
 
 // Helper check for backend administrative operations
 async function checkSuperAdmin(req) {
@@ -412,24 +305,9 @@ app.use('/api/*', (req, res) => {
   });
 });
 
-// Admin catch-all route for frontend page fallbacks
-app.get('/admin/*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/admin/index.html'));
-});
-
-// Generic catch-all route for user frontend page fallbacks
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/user/index.html'));
-});
-
 // 3. CENTRALIZED ERROR HANDLING MIDDLEWARE
 app.use(errorHandler);
 
-// Launch Express Server (Auto-Watched)
-app.listen(PORT, () => {
-  console.log(`\n==================================================`);
-  console.log(`  AirTrack Operations REST API Server running...`);
-  console.log(`  Port: ${PORT}`);
-  console.log(`  Status: Connected to Supabase Config Client`);
-  console.log(`==================================================\n`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`AirTrack Operations REST API Server running on port ${PORT}`);
 });
