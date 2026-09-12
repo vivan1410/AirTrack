@@ -99,8 +99,6 @@ app.post('/api/admin/verify', async (req, res) => {
   }
 });
 
-
-
 // Helper check for backend administrative operations
 async function checkSuperAdmin(req) {
   const authHeader = req.headers.authorization;
