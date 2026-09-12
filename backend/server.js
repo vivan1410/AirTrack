@@ -16,7 +16,7 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 8099;
 
-// Enable CORS with development origin allowlist
+// Enable CORS with development and production origin allowlist
 const corsOptions = {
   origin: [
     `http://localhost:${PORT}`,
