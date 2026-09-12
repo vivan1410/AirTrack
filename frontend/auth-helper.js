@@ -209,7 +209,7 @@ async function requireUserAuth() {
 // --- ADMIN AUTHENTICATION ---
 function getBackendApiUrl(endpoint) {
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const baseUrl = isLocal ? 'http://localhost:8099' : 'https://airtrack-backend-219e.onrender.com';
+  const baseUrl = isLocal ? 'http://localhost:8099' : 'https://airtrack-backend-2l9e.onrender.com';
   return baseUrl + (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
 }
 
