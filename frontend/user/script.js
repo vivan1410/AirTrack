@@ -1350,59 +1350,6 @@ function toggleWatchFlight(fNum) {
 }
 
 async function fetchPassengerDataFromBackend() {
-  const client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
-  if (client) {
-    try {
-      const { data: sFlights, error: sErr } = await client.from('flights').select('*').order('id', { ascending: true });
-      if (!sErr && Array.isArray(sFlights) && sFlights.length > 0) {
-        memoryFlights = sFlights.map(f => ({
-          id: f.id,
-          flightNumber: f.flight_number,
-          airline: f.airline,
-          airlineCode: f.airline_code || f.airline.substring(0, 2).toUpperCase(),
-          origin: f.origin,
-          originCode: f.origin_code || f.origin.substring(0, 3).toUpperCase(),
-          destination: f.destination,
-          destinationCode: f.destination_code || f.destination.substring(0, 3).toUpperCase(),
-          scheduledDeparture: f.scheduled_departure,
-          estimatedDeparture: f.estimated_departure || f.scheduled_departure,
-          scheduledArrival: f.scheduled_arrival,
-          estimatedArrival: f.estimated_arrival || f.scheduled_arrival,
-          gateId: f.gate_id,
-          terminal: f.terminal,
-          status: f.status,
-          delayMinutes: f.delay_minutes || 0
-        }));
-        localDb.saveFlights(memoryFlights);
-        flightsData = memoryFlights;
-        window.flightsData = memoryFlights;
-      }
-    } catch (e) {
-      console.warn("Passenger Supabase direct query notice:", e);
-    }
-
-    try {
-      const { data: sGates, error: gErr } = await client.from('gates').select('*').order('id', { ascending: true });
-      if (!gErr && Array.isArray(sGates) && sGates.length > 0) {
-        memoryGates = sGates.map(g => ({
-          id: g.id,
-          gateNumber: g.gate_number,
-          terminal: g.terminal,
-          status: g.status
-        }));
-        localDb.saveGates(memoryGates);
-        gatesData = memoryGates;
-        window.gatesData = memoryGates;
-      }
-    } catch (e) {
-      console.warn("Passenger Supabase direct gate query notice:", e);
-    }
-    syncDataStore();
-    renderAllViews();
-    if (window.lucide) window.lucide.createIcons();
-    return;
-  }
-
   try {
     const resF = await fetch(getBackendApiUrl('/api/flights'));
     if (resF.ok) {
