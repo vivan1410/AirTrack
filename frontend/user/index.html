@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overview Dashboard — AirTrack Passenger</title>
+  <meta name="description" content="Airline passenger operations portal dashboard. Manage watchlist flights and airport notices.">
+  <link rel="stylesheet" href="style.css?v=5">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js"></script>
+  <script src="/auth-helper.js"></script>
+  <script>
+    document.documentElement.style.display = 'none';
+    requireUserAuth().then(() => {
+      document.documentElement.style.display = '';
+    });
+  </script>
+</head>
+<body>
+
+  <!-- TOAST ALERTS OVERLAY -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div id="passenger-page">
+    
+    <!-- TOP STICKY NAVIGATION BAR -->
+    <nav class="navbar" id="navbar">
+      <div class="nav-container">
+        <a href="index.html" class="nav-logo-group">
+          <div class="nav-logo-icon">
+            <i data-lucide="plane-takeoff"></i>
+          </div>
+          <div class="nav-brand">
+            <span class="nav-brand-name">AirTrack</span>
+            <span class="nav-brand-tagline">Smart Flight Intel</span>
+          </div>
+        </a>
+
+        <ul class="nav-links" id="nav-links">
+          <li><a href="index.html" class="nav-link active">Overview</a></li>
+          <li><a href="my-flights.html" class="nav-link">My Flights</a></li>
+          <li><a href="flight-status.html" class="nav-link">Flight Status</a></li>
+          <li><a href="gates.html" class="nav-link">Gates</a></li>
+          <li><a href="airports.html" class="nav-link">Airports</a></li>
+        </ul>
+
+        <div class="nav-status-group">
+          <!-- Notification Bell Trigger -->
+          <div style="position: relative;">
+            <button class="nav-announcements-btn" id="passenger-notification-trigger" aria-label="Open Announcements" style="background: none; border: none; color: var(--text-light); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.5rem; position: relative;">
+              <i data-lucide="bell" style="width: 22px; height: 22px; color: #ffffff; stroke: #ffffff; display: block;"></i>
+              <span class="unread-badge hidden" id="unread-count" style="position: absolute; top: 0px; right: 0px; background-color: var(--status-cancelled-text); color: white; font-size: 0.65rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 50%; display: none; align-items: center; justify-content: center; padding: 1px;">0</span>
+            </button>
+          </div>
+
+          <!-- User Profile Dropdown -->
+          <div class="passenger-profile-container">
+            <div class="passenger-profile-trigger" id="passenger-profile-trigger">
+              <div class="passenger-avatar" id="passenger-avatar-letters">VR</div>
+              <span class="passenger-name-label" id="user-display-name">Vivan Raj</span>
+              <i data-lucide="chevron-down" style="width: 12px; height: 12px; color: var(--text-light);"></i>
+            </div>
+            <div class="passenger-dropdown" id="passenger-profile-dropdown">
+              <div class="passenger-dropdown-header">
+                <span class="passenger-dropdown-name" id="drop-passenger-name">Vivan Raj</span>
+                <span class="passenger-dropdown-email" id="drop-passenger-email">vivan@airtrack.demo</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('Profile details: ' + (JSON.parse(sessionStorage.getItem('airtrack_user_session'))?.email || 'vivan@airtrack.demo'))">
+                <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                <span>Profile</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('User Preferences saved locally.')">
+                <i data-lucide="sliders" style="width: 14px; height: 14px;"></i>
+                <span>Preferences</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('Notification settings: active')">
+                <i data-lucide="settings" style="width: 14px; height: 14px;"></i>
+                <span>Notification Settings</span>
+              </div>
+              <div class="passenger-dropdown-item logout-action" id="btn-passenger-logout">
+                <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+                <span>Sign Out</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span>LIVE SYSTEM</span>
+          </div>
+
+          <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle Menu">
+            <i data-lucide="menu"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section class="hero-section">
+      <div class="hero-container">
+        <span class="hero-label">AirTrack Boarding Deck</span>
+        <h1 class="hero-title" id="passenger-welcome-title">Good afternoon, Passenger</h1>
+        <p class="hero-subtitle">Here's what is happening with your travel today.</p>
+
+        <!-- Compact Search bar -->
+        <div class="search-terminal-wrapper">
+          <form class="search-form" id="search-form" onsubmit="handlePassengerFlightSearch(event)" style="position: relative;">
+            <div class="search-input-group" style="position: relative;">
+              <i data-lucide="search" class="search-icon-inside"></i>
+              <input 
+                type="text" 
+                id="search-input" 
+                class="search-input" 
+                placeholder="Search flight, route, airport or gate..." 
+                autocomplete="off"
+              >
+              <div id="search-suggestions" class="search-suggestions hidden"></div>
+            </div>
+            <button type="submit" id="btn-find-flight" class="search-button" onclick="handlePassengerFlightSearch(event)">
+              <i data-lucide="plane"></i>
+              <span>Find Flight</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- DYNAMIC SEARCH RESULT PANEL -->
+        <div class="search-results-section" id="search-results-section" style="display: none; margin-top: 1.5rem; max-width: 750px; width: 100%;">
+          <div id="search-results-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD CONTAINER -->
+    <main class="dashboard-container">
+      
+      <!-- Summary metrics cards -->
+      <section class="stats-grid" id="passenger-stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon-box"><i data-lucide="plane"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">My Upcoming Flights</span>
+            <span class="stat-value" id="stat-total-flights">0</span>
+            <span class="stat-sub">Watched flights</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-box" style="color: var(--status-ontime-text);"><i data-lucide="check-circle-2"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">On Time</span>
+            <span class="stat-value" id="stat-ontime-flights" style="color: var(--status-ontime-text);">0</span>
+            <span class="stat-sub">Normal concourses</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-box" style="color: var(--status-delayed-text);"><i data-lucide="clock"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Delayed</span>
+            <span class="stat-value" id="stat-delayed-flights" style="color: var(--status-delayed-text);">0</span>
+            <span class="stat-sub">Behind schedule</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-box" style="color: var(--accent-cyan);"><i data-lucide="calendar"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Next Flight</span>
+            <span class="stat-value" id="stat-next-flight-num" style="font-size: 1.15rem; color: var(--accent-cyan); line-height: 2.2;">—</span>
+            <span class="stat-sub" id="stat-next-flight-time">No active departures</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Two-column grid -->
+      <div class="main-grid">
+        
+        <!-- Left: Upcoming Flights -->
+        <div style="display: flex; flex-direction: column; gap: 2rem;">
+          <section class="dashboard-card">
+            <div class="card-header">
+              <span class="card-title"><i data-lucide="star"></i> My Upcoming Flights</span>
+              <div class="card-actions">
+                <a href="my-flights.html" class="search-button" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; text-decoration: none; align-items: center; justify-content: center; height: auto;">View All Flights</a>
+              </div>
+            </div>
+            
+            <div class="table-responsive">
+              <table class="flight-table">
+                <thead>
+                  <tr>
+                    <th>Flight</th>
+                    <th>Airline</th>
+                    <th>Route</th>
+                    <th>Time</th>
+                    <th>Terminal</th>
+                    <th>Gate</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-watchlist-body">
+                  <!-- Filled dynamically by script.js -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Quick actions section -->
+          <section class="dashboard-card">
+            <div class="card-header" style="border-bottom: none; margin-bottom: 0.5rem;">
+              <span class="card-title"><i data-lucide="compass"></i> Quick Action Tools</span>
+            </div>
+            <div class="quick-actions-grid">
+              <a href="flight-status.html" class="quick-action-card">
+                <div class="quick-action-icon"><i data-lucide="search"></i></div>
+                <div class="quick-action-info">
+                  <span class="quick-action-title">Check Flight Status</span>
+                  <span class="quick-action-desc">FIDS status boards</span>
+                </div>
+              </a>
+              <a href="gates.html" class="quick-action-card">
+                <div class="quick-action-icon"><i data-lucide="door-open"></i></div>
+                <div class="quick-action-info">
+                  <span class="quick-action-title">Find Airport Gate</span>
+                  <span class="quick-action-desc">Gate utilization boards</span>
+                </div>
+              </a>
+              <a href="airports.html" class="quick-action-card">
+                <div class="quick-action-icon"><i data-lucide="globe"></i></div>
+                <div class="quick-action-info">
+                  <span class="quick-action-title">Airport Information</span>
+                  <span class="quick-action-desc">IATA specs and locations</span>
+                </div>
+              </a>
+            </div>
+          </section>
+        </div>
+
+        <!-- Right: Live Tracker & Announcements -->
+        <div style="display: flex; flex-direction: column; gap: 2rem;">
+          
+          <!-- Live Tracker Visual progress card -->
+          <section class="dashboard-card">
+            <div class="card-header">
+              <span class="card-title"><i data-lucide="navigation"></i> Flight Status Tracker</span>
+            </div>
+            <div class="live-tracker-panel" id="overview-live-tracker">
+              <!-- Filled dynamically by script.js -->
+            </div>
+          </section>
+
+          <!-- Travel announcements feed -->
+          <section class="dashboard-card">
+            <div class="card-header">
+              <span class="card-title"><i data-lucide="megaphone"></i> Travel Announcements</span>
+            </div>
+            <div class="alert-feed" id="overview-announcements-list">
+              <!-- Filled dynamically by script.js -->
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="footer-container">
+        <div class="footer-top">
+          <div class="footer-brand">
+            <div class="footer-brand-title">
+              <div class="nav-logo-icon" style="width: 28px; height: 28px;">
+                <i data-lucide="plane-takeoff" style="width: 16px; height: 16px;"></i>
+              </div>
+              <span class="footer-logo-text">AirTrack</span>
+            </div>
+            <span class="footer-brand-tagline">Smart Airport Flight & Gate Management</span>
+          </div>
+
+          <div class="footer-nav">
+            <span class="footer-nav-title">Navigation</span>
+            <ul class="footer-nav-links">
+              <li><a href="index.html" class="footer-nav-link">Overview</a></li>
+              <li><a href="my-flights.html" class="footer-nav-link">My Flights</a></li>
+              <li><a href="flight-status.html" class="footer-nav-link">Flight Status</a></li>
+              <li><a href="gates.html" class="footer-nav-link">Gates</a></li>
+              <li><a href="airports.html" class="footer-nav-link">Airports</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-disclaimer-card">
+            <i data-lucide="info" class="disclaimer-icon"></i>
+            <div class="disclaimer-details">
+              <span class="disclaimer-title">Technical Disclaimer</span>
+              <p class="disclaimer-text">
+                Flight information shown in this demonstration is simulated and is not sourced from live commercial aviation feeds.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <span class="footer-copyright">&copy; 2026 AirTrack Passenger Portal. All rights reserved.</span>
+          <div class="footer-meta">
+            <span>Operations Center Dashboard</span>
+            <span>v2.0.0</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- MODAL: FLIGHT DETAILS Drawer -->
+  <div class="modal-overlay" id="flight-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-card-title">Flight Operations Card</h3>
+        <button class="modal-close-btn" id="flight-modal-close" aria-label="Close operations details card">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="flight-modal-body">
+        <!-- Dyn. Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ANNOUNCEMENTS DRAWER -->
+  <div class="modal-overlay" id="announcements-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--border-color); background-color: var(--bg-card);">
+        <h3 class="modal-card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="bell" style="color: var(--accent-blue);"></i>
+          <span>Airport Announcement Center</span>
+        </h3>
+        <button class="modal-close-btn" id="passenger-notification-close" aria-label="Close announcements panel">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="announcements-toolbar" style="padding: 0.75rem 1.5rem; display: flex; justify-content: flex-end; border-bottom: 1px dashed var(--border-color); background: var(--bg-card);">
+        <button class="search-button" id="btn-mark-all-read" style="padding: 0.35rem 0.75rem; font-size: 0.7rem; display: flex; align-items: center; gap: 0.25rem;">
+          <i data-lucide="check-check" style="width: 14px; height: 14px;"></i>
+          <span>Mark All Read</span>
+        </button>
+      </div>
+      <div class="modal-body" id="announcements-modal-body" style="padding: 1rem 1.5rem; overflow-y: auto; max-height: calc(100vh - 180px); display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Populated dynamically by script.js -->
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="script.js?v=4" defer></script>
+</body>
+</html>

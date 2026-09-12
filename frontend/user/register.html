@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account — AirTrack</title>
+  <meta name="description" content="Register a passenger profile to track flight schedules and gates.">
+  <link rel="stylesheet" href="/admin/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js?v=2"></script>
+  <script src="/auth-helper.js?v=2"></script>
+  <script>
+    // Redirect if already logged in
+    document.documentElement.style.display = 'none';
+    window.addEventListener('DOMContentLoaded', async () => {
+      const client = getSupabaseClient();
+      if (client) {
+        const { data: { session } } = await client.auth.getSession();
+        if (session) {
+          window.location.href = '/user/index.html';
+          return;
+        }
+      } else {
+        if (isUserAuthenticated()) {
+          window.location.href = '/user/index.html';
+          return;
+        }
+      }
+      document.documentElement.style.display = '';
+    });
+  </script>
+  <style>
+    :root {
+      --primary-navy: #0f172a;
+      --bg-panel: #0a0f1d;
+      --gold-accent: #c5a880;
+      --cream-card: #fdfbf7;
+      --text-dark: #0f172a;
+      --text-light: #f8fafc;
+      --text-muted: #64748b;
+      --border-color: rgba(15, 23, 42, 0.08);
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body {
+      background: var(--bg-panel);
+      font-family: var(--font-sans);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-light);
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient Animated Sky Background */
+    .sky-background {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, #152238 0%, #060b13 100%);
+    }
+
+    .flight-paths {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .airplane-icon {
+      position: absolute;
+      top: 35%;
+      left: 15%;
+      transform: translate(-50%, -50%);
+      animation: flyRoute 20s infinite linear;
+      z-index: 2;
+    }
+
+    @keyframes flyRoute {
+      0% { transform: translate(-100px, 150px) rotate(42deg); opacity: 0; }
+      5% { opacity: 0.7; }
+      95% { opacity: 0.7; }
+      100% { transform: translate(1000px, -300px) rotate(42deg); opacity: 0; }
+    }
+
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 0 3px white;
+      animation: sparkle 4s infinite ease-in-out;
+    }
+
+    .star-1 { top: 15%; left: 12%; animation-delay: 0s; }
+    .star-2 { top: 38%; left: 82%; animation-delay: 1.5s; }
+    .star-3 { top: 78%; left: 22%; animation-delay: 0.8s; }
+
+    @keyframes sparkle {
+      0%, 100% { opacity: 0.15; transform: scale(0.8); }
+      50% { opacity: 0.8; transform: scale(1.2); }
+    }
+
+    /* Premium Boarding Pass structure */
+    .boarding-pass {
+      width: 100%;
+      max-width: 840px;
+      min-height: 560px;
+      background: var(--cream-card);
+      border-radius: 16px;
+      display: flex;
+      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 50px rgba(197, 168, 128, 0.05);
+      z-index: 10;
+      position: relative;
+      overflow: hidden;
+      margin: 1.5rem;
+    }
+
+    /* Left Ticket Stub */
+    .ticket-stub {
+      width: 210px;
+      background: #14213d;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3rem 1.5rem;
+      box-sizing: border-box;
+      position: relative;
+      border-right: 2px dashed rgba(15, 23, 42, 0.1);
+    }
+
+    /* Boarding pass tear-out notches */
+    .ticket-stub::before, .ticket-stub::after {
+      content: '';
+      position: absolute;
+      right: -10px;
+      width: 20px;
+      height: 20px;
+      background: var(--bg-panel);
+      border-radius: 50%;
+      z-index: 12;
+    }
+    .ticket-stub::before { top: -10px; }
+    .ticket-stub::after { bottom: -10px; }
+
+    .stub-seq {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 0.7rem;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.35);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stub-brand {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-family: var(--font-serif);
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--gold-accent);
+      letter-spacing: 6px;
+      margin: 2rem 0;
+    }
+
+    .stub-gate {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 0.7rem;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.35);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Right Main Ticket Panel */
+    .ticket-main {
+      flex: 1;
+      background: var(--cream-card);
+      padding: 3rem 3.5rem;
+      color: var(--text-dark);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    .pass-label {
+      font-size: 0.7rem;
+      letter-spacing: 3px;
+      font-weight: 800;
+      color: var(--gold-accent);
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+    }
+
+    .pass-title {
+      font-family: var(--font-serif);
+      font-size: 2.4rem;
+      font-weight: 700;
+      margin: 0 0 0.25rem;
+      color: #1d273b;
+      line-height: 1.1;
+    }
+
+    .pass-subtitle {
+      font-size: 0.85rem;
+      color: #57606f;
+      margin: 0 0 1.25rem;
+      line-height: 1.4;
+    }
+
+    /* Forms input fields */
+    .form-group {
+      margin-bottom: 0.75rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #57606f;
+      margin-bottom: 0.35rem;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.03);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      color: var(--text-dark);
+      font-size: 0.9rem;
+      font-weight: 500;
+      box-sizing: border-box;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      background: white;
+      border-color: var(--gold-accent);
+      box-shadow: 0 0 0 3px rgba(197, 168, 128, 0.15);
+    }
+
+    /* Primary submit CTA button */
+    .btn-submit-premium {
+      width: 100%;
+      background: #14213d;
+      color: white;
+      border: none;
+      padding: 0.8rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background-color 0.2s, transform 0.1s;
+      letter-spacing: 1px;
+    }
+
+    .btn-submit-premium:hover {
+      background: #0d1629;
+    }
+
+    .btn-submit-premium:disabled {
+      background: rgba(20, 33, 61, 0.4);
+      cursor: not-allowed;
+    }
+
+    .arrow-box {
+      background: var(--gold-accent);
+      color: #14213d;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      margin-left: 0.25rem;
+      letter-spacing: 1px;
+    }
+
+    /* Barcode styling */
+    .barcode-container {
+      margin-top: 1rem;
+      text-align: center;
+    }
+
+    .barcode {
+      width: 100%;
+      height: 32px;
+      background: repeating-linear-gradient(90deg, #14213d, #14213d 2px, transparent 2px, transparent 6px, #14213d 6px, #14213d 7px, transparent 7px, transparent 11px);
+      opacity: 0.95;
+      margin-bottom: 0.4rem;
+    }
+
+    .barcode-subtext {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem;
+      letter-spacing: 3px;
+      color: #747d8c;
+      text-transform: uppercase;
+    }
+
+    /* Footer layouts */
+    .pass-footer {
+      border-top: 1px solid rgba(15, 23, 42, 0.08);
+      margin-top: 1rem;
+      padding-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #57606f;
+    }
+
+    .pass-footer a {
+      color: #14213d;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .pass-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 850px) {
+      .boarding-pass {
+        flex-direction: column;
+        max-width: 460px;
+        min-height: auto;
+      }
+      .ticket-stub {
+        width: 100%;
+        height: auto;
+        flex-direction: row;
+        padding: 1.25rem 2rem;
+      }
+      .ticket-stub::before, .ticket-stub::after {
+        display: none;
+      }
+      .stub-seq, .stub-brand, .stub-gate {
+        writing-mode: horizontal-tb;
+        transform: rotate(0);
+        margin: 0;
+      }
+      .ticket-main {
+        padding: 2.5rem 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sky-background">
+    <svg class="flight-paths" xmlns="http://www.w3.org/2000/svg">
+      <path d="M-100,220 Q200,-30 500,320" fill="none" stroke="rgba(197, 168, 128, 0.12)" stroke-width="1.5" stroke-dasharray="4,6" />
+      <path d="M150,650 Q550,250 1100,550" fill="none" stroke="rgba(197, 168, 128, 0.12)" stroke-width="1.5" stroke-dasharray="4,6" />
+    </svg>
+    <div class="airplane-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="var(--gold-accent)" opacity="0.6" style="transform: rotate(45deg);"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L14 19v-5.5l8 2.5z"/></svg>
+    </div>
+    <div class="star star-1"></div>
+    <div class="star star-2"></div>
+    <div class="star star-3"></div>
+  </div>
+
+  <div class="boarding-pass">
+    <!-- Left Ticket Stub -->
+    <div class="ticket-stub">
+      <div class="stub-seq">SEQ 048</div>
+      <div class="stub-brand">AIRTRACK</div>
+      <div class="stub-gate">GATE —</div>
+    </div>
+
+    <!-- Main Boarding Pass Card -->
+    <div class="ticket-main">
+      <div class="pass-label">Passenger Sign Up</div>
+      <h2 class="pass-title">Where to, today?</h2>
+      <p class="pass-subtitle">Create a passenger profile to track flight details and sync gate alerts.</p>
+
+      <div class="error-alert" id="error-alert" style="display: none; padding: 0.75rem; background: rgba(220, 38, 38, 0.05); border: 1px solid rgba(220, 38, 38, 0.15); color: #ef4444; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1.25rem; font-weight: 500;"></div>
+
+      <form id="register-form">
+        <div class="form-group">
+          <label class="form-label" for="reg-name">Full Name</label>
+          <input class="form-input" type="text" id="reg-name" required placeholder="e.g. John Doe">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-email">Email Address</label>
+          <input class="form-input" type="email" id="reg-email" required placeholder="you@example.com" autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-password">Password</label>
+          <input class="form-input" type="password" id="reg-password" required placeholder="Min 6 characters">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-confirm">Confirm Password</label>
+          <input class="form-input" type="password" id="reg-confirm" required placeholder="••••••••">
+        </div>
+
+        <button class="btn-submit-premium" type="submit" id="btn-submit">
+          <span>Create Account</span>
+          <span class="arrow-box">→ REGISTER</span>
+        </button>
+      </form>
+
+      <div style="display: flex; align-items: center; margin: 1rem 0; color: #747d8c; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px;">
+        <div style="flex-grow: 1; height: 1px; background: rgba(15, 23, 42, 0.08);"></div>
+        <span style="padding: 0 0.75rem; font-weight: 700;">or</span>
+        <div style="flex-grow: 1; height: 1px; background: rgba(15, 23, 42, 0.08);"></div>
+      </div>
+
+      <button type="button" class="btn-submit-premium" id="btn-google-login" style="background: transparent; border: 1px solid rgba(15, 23, 42, 0.15); color: #14213d; margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: none;">
+        <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
+        <span>Sign up with Google</span>
+      </button>
+
+      <!-- Barcode component -->
+      <div class="barcode-container">
+        <div class="barcode"></div>
+        <div class="barcode-subtext">BOARDING &bull; AIRTRACK &bull; NOT VALID FOR TRAVEL</div>
+      </div>
+
+      <div class="pass-footer">
+        <div>Already have an account? <a href="login.html">Sign In</a></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const registerForm = document.getElementById('register-form');
+    const btnSubmit = document.getElementById('btn-submit');
+    const errorAlert = document.getElementById('error-alert');
+
+    if (registerForm) {
+      registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const confirm = document.getElementById('reg-confirm').value;
+
+        errorAlert.style.display = 'none';
+
+        // Matching passwords check
+        if (password !== confirm) {
+          errorAlert.style.display = 'block';
+          errorAlert.textContent = "Error: Passwords do not match.";
+          return;
+        }
+
+        // Visual loading state
+        btnSubmit.disabled = true;
+        const btnText = btnSubmit.querySelector('span');
+        btnText.textContent = "Creating Account...";
+
+        setTimeout(async () => {
+          const auth = await registerUser(name, email, password);
+          if (auth.success) {
+            window.location.href = '/user/index.html';
+          } else {
+            errorAlert.style.display = 'block';
+            errorAlert.textContent = auth.error;
+            btnSubmit.disabled = false;
+            btnText.textContent = "Create Account";
+          }
+        }, 800);
+      });
+    }
+
+    // Google Sign-In Trigger
+    const btnGoogleLogin = document.getElementById('btn-google-login');
+    if (btnGoogleLogin) {
+      btnGoogleLogin.addEventListener('click', async () => {
+        if (errorAlert) errorAlert.style.display = 'none';
+        const btnText = btnGoogleLogin.querySelector('span');
+        const origText = btnText ? btnText.textContent : "Sign up with Google";
+        if (btnText) btnText.textContent = "Connecting to Google...";
+        btnGoogleLogin.disabled = true;
+
+        const auth = await loginWithGoogleOAuth('user');
+        if (!auth.success) {
+          if (errorAlert) {
+            errorAlert.style.display = 'block';
+            errorAlert.textContent = auth.error || "Google sign-in could not be completed.";
+          }
+          if (btnText) btnText.textContent = origText;
+          btnGoogleLogin.disabled = false;
+        }
+      });
+    }
+  </script>
+</body>
+</html>

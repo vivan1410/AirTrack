@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gates & Bays Monitor — AirTrack Passenger</title>
+  <meta name="description" content="Passenger terminal gates status board. View active gate boarding times.">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js"></script>
+  <script src="/auth-helper.js"></script>
+  <script>
+    document.documentElement.style.display = 'none';
+    requireUserAuth().then(() => {
+      document.documentElement.style.display = '';
+    });
+  </script>
+</head>
+<body>
+
+  <!-- TOAST ALERTS OVERLAY -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div id="passenger-page">
+    
+    <!-- TOP STICKY NAVIGATION BAR -->
+    <nav class="navbar" id="navbar">
+      <div class="nav-container">
+        <a href="index.html" class="nav-logo-group">
+          <div class="nav-logo-icon">
+            <i data-lucide="plane-takeoff"></i>
+          </div>
+          <div class="nav-brand">
+            <span class="nav-brand-name">AirTrack</span>
+            <span class="nav-brand-tagline">Smart Flight Intel</span>
+          </div>
+        </a>
+
+        <ul class="nav-links" id="nav-links">
+          <li><a href="index.html" class="nav-link">Overview</a></li>
+          <li><a href="my-flights.html" class="nav-link">My Flights</a></li>
+          <li><a href="flight-status.html" class="nav-link">Flight Status</a></li>
+          <li><a href="gates.html" class="nav-link active">Gates</a></li>
+          <li><a href="airports.html" class="nav-link">Airports</a></li>
+        </ul>
+
+        <div class="nav-status-group">
+          <!-- Notification Bell Trigger -->
+          <div style="position: relative;">
+            <button class="nav-announcements-btn" id="passenger-notification-trigger" aria-label="Open Announcements" style="background: none; border: none; color: var(--text-light); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.5rem;">
+              <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
+              <span class="unread-badge hidden" id="unread-count" style="position: absolute; top: 0px; right: 0px; background-color: var(--status-cancelled-text); color: white; font-size: 0.65rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 50%; display: none; align-items: center; justify-content: center; padding: 1px;">0</span>
+            </button>
+          </div>
+
+          <!-- User Profile Dropdown -->
+          <div class="passenger-profile-container">
+            <div class="passenger-profile-trigger" id="passenger-profile-trigger" onclick="togglePassengerProfileDropdown(event)">
+              <div class="passenger-avatar" id="passenger-avatar-letters">JP</div>
+              <span class="passenger-name-label" id="user-display-name">Guest User</span>
+              <i data-lucide="chevron-down" style="width: 12px; height: 12px; color: var(--text-light);"></i>
+            </div>
+            <div class="passenger-dropdown" id="passenger-profile-dropdown">
+              <div class="passenger-dropdown-header">
+                <span class="passenger-dropdown-name" id="drop-passenger-name">John Passenger</span>
+                <span class="passenger-dropdown-email" id="drop-passenger-email">passenger@airtrack.demo</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('Profile details: ' + (JSON.parse(sessionStorage.getItem('airtrack_user_session'))?.email || 'passenger@airtrack.demo'))">
+                <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                <span>Profile</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('User Preferences saved locally.')">
+                <i data-lucide="sliders" style="width: 14px; height: 14px;"></i>
+                <span>Preferences</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('Notification settings: active')">
+                <i data-lucide="settings" style="width: 14px; height: 14px;"></i>
+                <span>Notification Settings</span>
+              </div>
+              <div class="passenger-dropdown-item logout-action" id="btn-passenger-logout" onclick="handlePassengerSignOut(event)">
+                <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+                <span>Sign Out</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span>LIVE SYSTEM</span>
+          </div>
+
+          <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle Menu">
+            <i data-lucide="menu"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section class="hero-section">
+      <div class="hero-container">
+        <span class="hero-label">Airport Bay allocations</span>
+        <h1 class="hero-title">Terminal Gate Directory</h1>
+        <p class="hero-subtitle">Monitor plane parking bays, concourse gates, and active boarding flight calls.</p>
+      </div>
+    </section>
+
+    <!-- DASHBOARD CONTAINER -->
+    <main class="dashboard-container">
+      
+      <!-- Gate status cards board -->
+      <section class="dashboard-card" id="gates-monitor-panel" style="width: 100%;">
+        <div class="card-header">
+          <div class="card-header-titles">
+            <h2 class="card-title"><i data-lucide="door-open"></i> Gate Status Monitor</h2>
+            <span class="card-subtitle">Terminal 1 and Terminal 2 allocations monitor.</span>
+          </div>
+          <div class="card-actions">
+            <!-- Visual Gate Map Modal Trigger -->
+            <button class="search-button" id="btn-open-gate-finder" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+              <i data-lucide="map"></i>
+              <span>Gate Finder Map</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Table controls filters and quick query search -->
+        <div class="table-controls-bar">
+          <div class="filter-pills-wrapper" id="terminal-pills-wrapper">
+            <button class="filter-pill active" data-terminal="all">All Terminals</button>
+            <button class="filter-pill" data-terminal="1">Terminal 1 (Concourse A)</button>
+            <button class="filter-pill" data-terminal="2">Terminal 2 (Concourse B)</button>
+          </div>
+        </div>
+
+        <!-- Visual Gate Utilization Grid -->
+        <div class="gate-visual-grid" id="gates-grid" style="margin-top: 1rem;">
+          <!-- Dynamically populated by script.js -->
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="footer-container">
+        <div class="footer-top">
+          <div class="footer-brand">
+            <div class="footer-brand-title">
+              <div class="nav-logo-icon" style="width: 28px; height: 28px;">
+                <i data-lucide="plane-takeoff" style="width: 16px; height: 16px;"></i>
+              </div>
+              <span class="footer-logo-text">AirTrack</span>
+            </div>
+            <span class="footer-brand-tagline">Smart Airport Flight & Gate Management</span>
+          </div>
+
+          <div class="footer-nav">
+            <span class="footer-nav-title">Navigation</span>
+            <ul class="footer-nav-links">
+              <li><a href="index.html" class="footer-nav-link">Overview</a></li>
+              <li><a href="my-flights.html" class="footer-nav-link">My Flights</a></li>
+              <li><a href="flight-status.html" class="footer-nav-link">Flight Status</a></li>
+              <li><a href="gates.html" class="footer-nav-link">Gates</a></li>
+              <li><a href="airports.html" class="footer-nav-link">Airports</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-disclaimer-card">
+            <i data-lucide="info" class="disclaimer-icon"></i>
+            <div class="disclaimer-details">
+              <span class="disclaimer-title">Technical Disclaimer</span>
+              <p class="disclaimer-text">
+                Flight information shown in this demonstration is simulated and is not sourced from live commercial aviation feeds.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <span class="footer-copyright">&copy; 2026 AirTrack Passenger Portal. All rights reserved.</span>
+          <div class="footer-meta">
+            <span>Operations Center Dashboard</span>
+            <span>v2.0.0</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- MODAL: GATES MAP DIALOG -->
+  <div class="modal-overlay" id="gate-finder-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-card-title">Terminal Gate Finder Map</h3>
+        <button class="modal-close-btn" id="gate-finder-modal-close" aria-label="Close gate map finder modal">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="gate-finder-modal-body">
+        <!-- Dyn. Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: FLIGHT DETAILS Drawer -->
+  <div class="modal-overlay" id="flight-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-card-title">Flight Operations Card</h3>
+        <button class="modal-close-btn" id="flight-modal-close" aria-label="Close operations details card">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="flight-modal-body">
+        <!-- Dyn. Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ANNOUNCEMENTS DRAWER -->
+  <div class="modal-overlay" id="announcements-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--border-color); background-color: var(--bg-card);">
+        <h3 class="modal-card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="bell" style="color: var(--accent-blue);"></i>
+          <span>Airport Announcement Center</span>
+        </h3>
+        <button class="modal-close-btn" id="passenger-notification-close" aria-label="Close announcements panel">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="announcements-toolbar" style="padding: 0.75rem 1.5rem; display: flex; justify-content: flex-end; border-bottom: 1px dashed var(--border-color); background: var(--bg-card);">
+        <button class="search-button" id="btn-mark-all-read" style="padding: 0.35rem 0.75rem; font-size: 0.7rem; display: flex; align-items: center; gap: 0.25rem;">
+          <i data-lucide="check-check" style="width: 14px; height: 14px;"></i>
+          <span>Mark All Read</span>
+        </button>
+      </div>
+      <div class="modal-body" id="announcements-modal-body" style="padding: 1rem 1.5rem; overflow-y: auto; max-height: calc(100vh - 180px); display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Populated dynamically by script.js -->
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="script.js?v=4" defer></script>
+</body>
+</html>

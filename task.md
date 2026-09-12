@@ -1,0 +1,13 @@
+- [x] Configure SELECT RLS policies on administrators and profiles tables in database/schema.sql
+- [x] Create backend /api/admin/verify endpoint enforcing service-role client verification
+- [x] Update frontend login-callback.html to authorize session through the backend endpoint
+- [x] Update auth-helper.js loginAdmin and requireAdminAuth to use the backend endpoint
+- [x] Validate all changes are operational without crashes on port 8080
+- [x] Implement backend GET, POST, PATCH, and DELETE endpoints for administrators management in server.js
+- [x] Secure backend endpoints by validating requesting token has role = 'Super Administrator'
+- [x] Prevent Super Admin self-deletion and self-deactivation inside PATCH/DELETE endpoints
+- [x] Render administrators list table asynchronously from backend DB
+- [x] Enforce role-based client-side page transitions and UI control hiding (Flights, Announcements, Admins)
+- [x] Redesign passenger /register page to match boarding-pass premium design with "Sign up with Google"
+- [x] Ensure login-callback queries and inserts new passenger profile records to database
+- [x] Configure INSERT/UPDATE RLS policies for profiles table in database/schema.sql

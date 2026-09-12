@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting — AirTrack</title>
+  <script>
+    // Forward query and hash parameters to login-callback.html
+    const target = '/login-callback.html' + window.location.search + window.location.hash;
+    console.log("[Fallback Redirector] Forwarding legacy /login-callback path to:", target);
+    window.location.replace(target);
+  </script>
+</head>
+<body style="background:#0a0f1d; color:white; font-family:sans-serif; text-align:center; padding-top:20vh;">
+  <p>Redirecting to login callback...</p>
+</body>
+</html>

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About AirTrack Platform</title>
+  <meta name="description" content="Learn about AirTrack's architecture, frontend-only simulation, and tech stack details.">
+  <link class="styles" rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js"></script>
+  <script src="/auth-helper.js"></script>
+  <script>
+    document.documentElement.style.display = 'none';
+    requireUserAuth().then(() => {
+      document.documentElement.style.display = '';
+    });
+  </script>
+</head>
+<body class="about-page">
+
+  <!-- OFFLINE FALLBACK BANNER -->
+  <div class="fallback-banner" id="fallback-banner">
+    <i data-lucide="database-backup"></i>
+    <span>Running in local fallback database mode (Backend API unconfigured or offline).</span>
+  </div>
+
+  <!-- TOAST ALERTS OVERLAY -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div id="passenger-page">
+    <!-- TOP STICKY NAVIGATION -->
+    <nav class="navbar" id="navbar">
+      <div class="nav-container">
+        <a href="index.html" class="nav-logo-group">
+          <div class="nav-logo-icon">
+            <i data-lucide="plane-takeoff"></i>
+          </div>
+          <div class="nav-brand">
+            <span class="nav-brand-name">AirTrack</span>
+            <span class="nav-brand-tagline">Smart Flight Intel</span>
+          </div>
+        </a>
+
+        <ul class="nav-links" id="nav-links">
+          <li><a href="index.html" class="nav-link">Overview</a></li>
+          <li><a href="flight-status.html" class="nav-link">Flight Status</a></li>
+          <li><a href="gates.html" class="nav-link">Gates</a></li>
+          <li><a href="about.html" class="nav-link active">About</a></li>
+        </ul>
+        <div class="nav-status-group">
+          <!-- User Profile Dropdown -->
+          <div class="passenger-profile-container">
+            <div class="passenger-profile-trigger" id="passenger-profile-trigger" onclick="togglePassengerProfileDropdown(event)">
+              <div class="passenger-avatar" id="passenger-avatar-letters">JP</div>
+              <span class="passenger-name-label" id="user-display-name">Guest User</span>
+              <i data-lucide="chevron-down" style="width: 12px; height: 12px; color: var(--text-light);"></i>
+            </div>
+            <div class="passenger-dropdown" id="passenger-profile-dropdown">
+              <div class="passenger-dropdown-header">
+                <span class="passenger-dropdown-name" id="drop-passenger-name">John Passenger</span>
+                <span class="passenger-dropdown-email" id="drop-passenger-email">passenger@airtrack.demo</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('Profile details: ' + (JSON.parse(sessionStorage.getItem('airtrack_user_session'))?.email || 'passenger@airtrack.demo'))">
+                <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                <span>Profile</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('User Preferences saved locally.')">
+                <i data-lucide="sliders" style="width: 14px; height: 14px;"></i>
+                <span>Preferences</span>
+              </div>
+              <div class="passenger-dropdown-item" onclick="alert('Notification settings: active')">
+                <i data-lucide="settings" style="width: 14px; height: 14px;"></i>
+                <span>Notification Settings</span>
+              </div>
+              <div class="passenger-dropdown-item logout-action" id="btn-passenger-logout" onclick="handlePassengerSignOut(event)">
+                <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+                <span>Sign Out</span>
+              </div>
+            </div>
+          </div>
+          <button class="nav-announcements-btn" id="passenger-notification-trigger" aria-label="Open Announcements" style="position: relative; background: none; border: none; color: var(--text-light); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.5rem; transition: color var(--transition-fast); margin-right: 0.5rem;">
+            <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
+              <span class="unread-badge hidden" id="unread-count" style="position: absolute; top: 0px; right: 0px; background-color: var(--status-cancelled-text); color: white; font-size: 0.65rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 50%; display: none; align-items: center; justify-content: center; padding: 1px;">0</span>
+          </button>
+          <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span>LIVE SYSTEM</span>
+          </div>
+          <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle Menu">
+            <i data-lucide="menu"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ABOUT HERO -->
+    <section class="hero-section">
+      <div class="hero-container" style="max-width: 1200px; margin: 0 auto; text-align: center;">
+        <span class="hero-label">PLATFORM SPECIFICATION</span>
+        <h1 class="hero-title">AirTrack Platform</h1>
+        <p class="hero-subtitle">
+          A smart airport information and operations platform for flight tracking, gate management and operational alerts.
+        </p>
+      </div>
+    </section>
+
+    <!-- MAIN CONTAINER -->
+    <main class="dashboard-container" style="max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; display: flex; flex-direction: column; gap: 2.5rem;">
+      
+      <!-- SECTION 1: WHAT IS AIRTRACK? -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">What is AirTrack?</h2>
+        <p style="font-size: 0.95rem; color: var(--text-medium); line-height: 1.6; margin-bottom: 2rem;">
+          AirTrack is a simulated airport flight and gate management platform designed to provide passengers and airport operations teams with a unified view of flight schedules, gate assignments, delays and operational alerts.
+        </p>
+        
+        <!-- Four demo metrics grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+          <div style="background: var(--border-light); padding: 1.5rem; border-radius: var(--border-radius-md); text-align: center; border: 1px solid var(--border-color);">
+            <div style="font-size: 2.25rem; font-weight: 800; color: var(--accent-blue); line-height: 1.2;">8</div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary-navy); margin-top: 0.25rem; text-transform: uppercase;">Demo Flights</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Simulated Schedules</div>
+          </div>
+          <div style="background: var(--border-light); padding: 1.5rem; border-radius: var(--border-radius-md); text-align: center; border: 1px solid var(--border-color);">
+            <div style="font-size: 2.25rem; font-weight: 800; color: var(--accent-blue); line-height: 1.2;">7</div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary-navy); margin-top: 0.25rem; text-transform: uppercase;">Airport Gates</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Active Terminal Bays</div>
+          </div>
+          <div style="background: var(--border-light); padding: 1.5rem; border-radius: var(--border-radius-md); text-align: center; border: 1px solid var(--border-color);">
+            <div style="font-size: 2.25rem; font-weight: 800; color: var(--accent-blue); line-height: 1.2;">5+</div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary-navy); margin-top: 0.25rem; text-transform: uppercase;">Operational States</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Status Allocations</div>
+          </div>
+          <div style="background: var(--border-light); padding: 1.5rem; border-radius: var(--border-radius-md); text-align: center; border: 1px solid var(--border-color);">
+            <div style="font-size: 2.25rem; font-weight: 800; color: var(--accent-blue); line-height: 1.2;">24/7</div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary-navy); margin-top: 0.25rem; text-transform: uppercase;">Platform Model</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Continuous Loop Simulation</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: WHAT AIRTRACK PROVIDES -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">What AirTrack Provides</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-top: 1rem;">
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="plane" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">1. Flight Status Monitoring</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Track scheduled and estimated flight information in real-time.</span>
+          </div>
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="columns" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">2. Gate Management</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Monitor terminal gates and current docking aircraft assignments.</span>
+          </div>
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="shuffle" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">3. Smart Gate Changes</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Automatically propagate gate reassignment events to indicators.</span>
+          </div>
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="megaphone" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">4. Airport Announcements</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Display important operational updates to terminals dynamic banners.</span>
+          </div>
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="star" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">5. Passenger Watchlist</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Allow passengers to monitor selected flights and receive quick updates.</span>
+          </div>
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="shield-alert" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">6. Disruption Center</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Surface flight delays, cancellations and gate changes on a single hub.</span>
+          </div>
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="map-pin" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">7. Smart Concourse Finder</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Help passengers identify their terminal gates concourses location.</span>
+          </div>
+          <div class="announcement-banner-card" style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background-color: var(--accent-blue-light); color: var(--accent-blue); display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;"><i data-lucide="terminal" style="width: 16px; height: 16px;"></i></div>
+            <strong style="color: var(--primary-navy); font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">8. Operations Simulator</strong>
+            <span style="font-size: 0.8rem; color: var(--text-medium); line-height: 1.5; display: block;">Demonstrate airport operational dispatch changes via dispatcher inputs.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: HOW AIRTRACK WORKS -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">How AirTrack Works</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          Architectural pipeline routing operations data from user client down to data tier.
+        </p>
+
+        <!-- Visual flow diagram -->
+        <div style="display: flex; flex-direction: column; gap: 1rem; max-width: 600px; margin: 0 auto; padding: 1rem 0;">
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1rem; background: var(--bg-card); display: flex; flex-direction: column; gap: 0.5rem;">
+            <span style="font-size: 0.7rem; font-weight: 700; color: var(--accent-blue); text-transform: uppercase;">1. Client Level</span>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-navy);">Passenger / Airport Operator Client View</div>
+            <p style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.15rem;">Renders dashboards, search autocompletes, watchlist trackers, and simulator trigger decks.</p>
+          </div>
+          
+          <div style="text-align: center; color: var(--text-light);"><i data-lucide="arrow-down" style="width: 20px; height: 20px;"></i></div>
+
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1rem; background: var(--bg-card); display: flex; flex-direction: column; gap: 0.5rem;">
+            <span style="font-size: 0.7rem; font-weight: 700; color: var(--status-gatechanged-text); text-transform: uppercase;">2. Application Code</span>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-navy);">AirTrack Web App (HTML + CSS + ES6 JS)</div>
+            <p style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.15rem;">Manages local rendering engine, pathname routing mappings, and localStorage synchronization drivers.</p>
+          </div>
+
+          <div style="text-align: center; color: var(--text-light);"><i data-lucide="arrow-down" style="width: 20px; height: 20px;"></i></div>
+
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1rem; background: var(--bg-card); display: flex; flex-direction: column; gap: 0.5rem;">
+            <span style="font-size: 0.7rem; font-weight: 700; color: var(--status-delayed-text); text-transform: uppercase;">3. Service Endpoint Gateways</span>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-navy);">REST API Layer (Express router endpoints)</div>
+            <p style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.15rem;">REST API routes (/api/flights and /api/gates) prepare response arrays ready for backend connections.</p>
+          </div>
+
+          <div style="text-align: center; color: var(--text-light);"><i data-lucide="arrow-down" style="width: 20px; height: 20px;"></i></div>
+
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1rem; background: var(--bg-card); display: flex; flex-direction: column; gap: 0.5rem;">
+            <span style="font-size: 0.7rem; font-weight: 700; color: var(--status-ontime-text); text-transform: uppercase;">4. Server Middleware</span>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-navy);">Node.js + Express Server Layer</div>
+            <p style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.15rem;">Serves static files, hosts page routes under clean URLs on port 8080, and forwards database updates.</p>
+          </div>
+
+          <div style="text-align: center; color: var(--text-light);"><i data-lucide="arrow-down" style="width: 20px; height: 20px;"></i></div>
+
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1rem; background: var(--bg-card); display: flex; flex-direction: column; gap: 0.5rem;">
+            <span style="font-size: 0.7rem; font-weight: 700; color: var(--status-cancelled-text); text-transform: uppercase;">5. Data Storage Matrix</span>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--primary-navy);">PostgreSQL Database (Supabase Cloud Config Client)</div>
+            <p style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.15rem;">Intended cloud database storage tier schema templates.</p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div style="border-left: 4px solid var(--status-ontime-text); padding: 0.75rem 1rem; background: var(--status-ontime-bg); border-radius: 4px;">
+            <strong style="color: var(--status-ontime-text); font-size: 0.8rem; display: block;">CURRENT DEMO</strong>
+            <span style="font-size: 0.75rem; color: var(--text-medium);">Local simulated data engines syncing to browser localStorage fallback.</span>
+          </div>
+          <div style="border-left: 4px solid var(--accent-blue); padding: 0.75rem 1rem; background: var(--accent-blue-light); border-radius: 4px;">
+            <strong style="color: var(--accent-blue); font-size: 0.8rem; display: block;">TARGET CLOUD ARCHITECTURE</strong>
+            <span style="font-size: 0.75rem; color: var(--text-medium);">Full REST API integrations syncing database updates directly to cloud PostgreSQL models.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: TECHNOLOGY STACK -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">Technology Stack</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 0.5rem;">
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <strong style="color: var(--primary-navy); font-size: 0.85rem; display: block; border-bottom: 1px solid var(--border-light); padding-bottom: 0.25rem; text-transform: uppercase;">FRONTEND</strong>
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-medium); font-weight: 500;">
+              <span>HTML5 Skeleton</span>
+              <span>CSS3 Custom Styles</span>
+              <span>ES6 Vanilla JavaScript</span>
+            </div>
+          </div>
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <strong style="color: var(--primary-navy); font-size: 0.85rem; display: block; border-bottom: 1px solid var(--border-light); padding-bottom: 0.25rem; text-transform: uppercase;">BACKEND</strong>
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-medium); font-weight: 500;">
+              <span>Node.js Environment</span>
+              <span>Express.js Router</span>
+              <span>CORS & API controllers</span>
+            </div>
+          </div>
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <strong style="color: var(--primary-navy); font-size: 0.85rem; display: block; border-bottom: 1px solid var(--border-light); padding-bottom: 0.25rem; text-transform: uppercase;">DATABASE</strong>
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-medium); font-weight: 500;">
+              <span>PostgreSQL Schema</span>
+              <span>Supabase Cloud Host</span>
+              <span>localStorage Fallback</span>
+            </div>
+          </div>
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--bg-card);">
+            <strong style="color: var(--primary-navy); font-size: 0.85rem; display: block; border-bottom: 1px solid var(--border-light); padding-bottom: 0.25rem; text-transform: uppercase;">CLOUD</strong>
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-medium); font-weight: 500;">
+              <span>REST APIs Gateway</span>
+              <span>JSON Web Encodings</span>
+              <span>Pipeline Deployments</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 5: SMART EVENT WORKFLOW -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">Smart Event Workflow</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          How state changes propagate through AirTrack components during a gate reassignment event.
+        </p>
+
+        <!-- Vertical Workflow Chain -->
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; max-width: 500px; margin: 0 auto; padding: 1rem 0;">
+          
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--status-gatechanged-text); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">1</div>
+            <div style="background: var(--status-gatechanged-bg); border: 1px solid var(--status-gatechanged-border); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <strong style="color: var(--status-gatechanged-text); font-size: 0.85rem; display: block;">GATE CHANGE TRIGGER</strong>
+              <span style="font-size: 0.8rem; color: var(--text-medium);">Flight <strong>AI 539</strong> reallocated: <strong>Gate B04 &rarr; Gate A05</strong></span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">2</div>
+            <div style="background: var(--border-light); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">Flight operational state record updated</span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">3</div>
+            <div style="background: var(--border-light); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">Previous allocation <strong>Gate B04</strong> released (Available)</span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">4</div>
+            <div style="background: var(--border-light); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">New allocation <strong>Gate A05</strong> assigned (Occupied)</span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">5</div>
+            <div style="background: var(--border-light); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">Operational gate reassignment announcement generated</span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">6</div>
+            <div style="background: var(--border-light); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">Unread alert flag pushed to watchlisted passengers</span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--status-gatechanged-text); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">7</div>
+            <div style="background: var(--status-gatechanged-bg); border: 1px solid var(--status-gatechanged-border); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">FIDS Flight Status Board updates to gate <strong>A05</strong></span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--status-gatechanged-text); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">8</div>
+            <div style="background: var(--status-gatechanged-bg); border: 1px solid var(--status-gatechanged-border); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">Gate Status Monitor shifts card <strong>B04 &rarr; empty</strong>, <strong>A05 &rarr; occupied</strong></span>
+            </div>
+          </div>
+
+          <div style="margin-left: 14px; border-left: 2px dashed var(--text-light); height: 16px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--status-gatechanged-text); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">9</div>
+            <div style="background: var(--status-gatechanged-bg); border: 1px solid var(--status-gatechanged-border); padding: 0.75rem 1rem; border-radius: var(--border-radius-md); flex-grow: 1;">
+              <span style="font-size: 0.8rem; color: var(--text-medium); font-weight: 600;">Operational summaries and charts re-calculated dynamically</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 6: PASSENGER EXPERIENCE -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">Passenger Experience</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--border-light);">
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="info" style="color: var(--accent-blue); width: 18px; height: 18px;"></i>
+              <span>FLIGHT INFORMATION</span>
+            </div>
+            <ul style="list-style: none; font-size: 0.8rem; color: var(--text-medium); display: flex; flex-direction: column; gap: 0.35rem; padding-left: 0.5rem;">
+              <li>&bull; Scheduled/estimated departure logs</li>
+              <li>&bull; Assigned terminal docking numbers</li>
+              <li>&bull; FIDS boarding/delay state badges</li>
+              <li>&bull; Route origin/destination codes</li>
+            </ul>
+          </div>
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--border-light);">
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="bell-ring" style="color: var(--status-delayed-text); width: 18px; height: 18px;"></i>
+              <span>REAL-TIME ALERTS</span>
+            </div>
+            <ul style="list-style: none; font-size: 0.8rem; color: var(--text-medium); display: flex; flex-direction: column; gap: 0.35rem; padding-left: 0.5rem;">
+              <li>&bull; Ticker warnings on gate reallocations</li>
+              <li>&bull; Dynamic updates on delay notices</li>
+              <li>&bull; Real-time boarding status calls</li>
+              <li>&bull; Instant cancellation indicators</li>
+            </ul>
+          </div>
+          <div style="border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 1.25rem; background: var(--border-light);">
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="star" style="color: var(--status-gatechanged-text); width: 18px; height: 18px;"></i>
+              <span>PERSONAL WATCHLIST</span>
+            </div>
+            <ul style="list-style: none; font-size: 0.8rem; color: var(--text-medium); display: flex; flex-direction: column; gap: 0.35rem; padding-left: 0.5rem;">
+              <li>&bull; Customized passenger watched flights list</li>
+              <li>&bull; Direct highlight on active disruptions</li>
+              <li>&bull; Concourse navigation maps finder</li>
+              <li>&bull; Synchronization across tabs/windows</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 7: AIRPORT OPERATIONS -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">Airport Operations</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem;">
+          <span style="background: var(--accent-blue-light); color: var(--accent-blue); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><i data-lucide="anchor" style="width: 14px; height: 14px;"></i> Gate Allocation</span>
+          <span style="background: var(--accent-blue-light); color: var(--accent-blue); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><i data-lucide="eye" style="width: 14px; height: 14px;"></i> Flight Monitoring</span>
+          <span style="background: var(--accent-blue-light); color: var(--accent-blue); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><i data-lucide="alert-triangle" style="width: 14px; height: 14px;"></i> Disruption Management</span>
+          <span style="background: var(--accent-blue-light); color: var(--accent-blue); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><i data-lucide="sliders" style="width: 14px; height: 14px;"></i> Operational Simulation</span>
+          <span style="background: var(--accent-blue-light); color: var(--accent-blue); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"><i data-lucide="list-todo" style="width: 14px; height: 14px;"></i> Activity Tracking</span>
+        </div>
+      </section>
+
+      <!-- SECTION 8: PROJECT ARCHITECTURE -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">Project Architecture</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          Planned software architecture stack mapping logical layers. Component status targets highlighted.
+        </p>
+        
+        <div style="display: flex; flex-direction: column; border: 1px solid var(--border-color); border-radius: var(--border-radius-md); overflow: hidden; background: var(--bg-card);">
+          <div style="display: grid; grid-template-columns: 100px 1fr 120px; border-bottom: 1px solid var(--border-color); padding: 0.75rem 1rem; font-size: 0.8rem; background: var(--border-light); font-weight: 700; color: var(--primary-navy);">
+            <span>Layer</span>
+            <span>Component Description</span>
+            <span>Target Status</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 100px 1fr 120px; border-bottom: 1px solid var(--border-light); padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-medium); align-items: center;">
+            <strong>CLIENT</strong>
+            <span>Browser rendering overview pages, watchlist triggers and concourse mappings.</span>
+            <span class="status-badge on-time" style="font-size: 0.7rem; justify-content: center;">Implemented</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 100px 1fr 120px; border-bottom: 1px solid var(--border-light); padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-medium); align-items: center;">
+            <strong>APPLICATION</strong>
+            <span>AirTrack Web Application serving structured dashboards client side.</span>
+            <span class="status-badge on-time" style="font-size: 0.7rem; justify-content: center;">Implemented</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 100px 1fr 120px; border-bottom: 1px solid var(--border-light); padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-medium); align-items: center;">
+            <strong>API</strong>
+            <span>RESTful Services controller route requests handlers.</span>
+            <span class="status-badge maintenance" style="font-size: 0.7rem; justify-content: center;">Mocked/Local</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 100px 1fr 120px; border-bottom: 1px solid var(--border-light); padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-medium); align-items: center;">
+            <strong>SERVER</strong>
+            <span>Node.js + Express backend middleware static hosting.</span>
+            <span class="status-badge on-time" style="font-size: 0.7rem; justify-content: center;">Implemented</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 100px 1fr 120px; border-bottom: 1px solid var(--border-light); padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-medium); align-items: center;">
+            <strong>DATABASE</strong>
+            <span>PostgreSQL schemas mapping tables for flights data and gates data.</span>
+            <span class="status-badge maintenance" style="font-size: 0.7rem; justify-content: center;">Local Fallback</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 100px 1fr 120px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-medium); align-items: center;">
+            <strong>CLOUD</strong>
+            <span>Supabase integrations and public deployment host pipeline.</span>
+            <span class="status-badge cancelled" style="font-size: 0.7rem; justify-content: center;">Planned</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 9: PROJECT INFORMATION -->
+      <section class="dashboard-card" style="text-align: left;">
+        <h2 class="card-title" style="font-size: 1.35rem; color: var(--primary-navy); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.02em;">Project Information</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem;">
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Application Title</span>
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-top: 0.15rem;">AirTrack</div>
+            <div style="font-size: 0.8rem; color: var(--text-medium); margin-top: 0.1rem;">Smart Airport Flight & Gate Management</div>
+          </div>
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Project Type</span>
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-top: 0.15rem;">Cloud Computing</div>
+            <div style="font-size: 0.8rem; color: var(--text-medium); margin-top: 0.1rem;">Academic Demonstration Project</div>
+          </div>
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Data Layer</span>
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-top: 0.15rem;">Simulated Environment</div>
+            <div style="font-size: 0.8rem; color: var(--text-medium); margin-top: 0.1rem;">Simulated Demonstration Dataset</div>
+          </div>
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Architecture Schema</span>
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 0.95rem; margin-top: 0.15rem;">Multi-Tier Web App</div>
+            <div style="font-size: 0.8rem; color: var(--text-medium); margin-top: 0.1rem;">Client &rarr; REST API &rarr; DB &rarr; Cloud</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 10: TECHNICAL DISCLAIMER -->
+      <section class="dashboard-card" style="border-left: 4px solid var(--status-cancelled-text); text-align: left; background-color: var(--status-cancelled-bg); border-color: var(--status-cancelled-border); margin-bottom: 1rem;">
+        <h3 style="color: var(--status-cancelled-text); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase;">
+          <i data-lucide="info" style="width: 18px; height: 18px;"></i>
+          <span>Technical Disclaimer</span>
+        </h3>
+        <p style="font-size: 0.85rem; color: var(--status-cancelled-text); margin-top: 0.25rem; line-height: 1.5;">
+          AirTrack is an academic demonstration platform. Flight schedules, gate assignments and operational events shown in this application are simulated and are not sourced from live commercial aviation feeds.
+        </p>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="footer-container">
+        <div class="footer-top">
+          <div class="footer-brand">
+            <div class="footer-brand-title">
+              <div class="nav-logo-icon" style="width: 28px; height: 28px;">
+                <i data-lucide="plane-takeoff" style="width: 16px; height: 16px;"></i>
+              </div>
+              <span class="footer-logo-text">AirTrack</span>
+            </div>
+            <span class="footer-brand-tagline">Smart Airport Flight & Gate Management</span>
+          </div>
+
+          <div class="footer-nav">
+            <span class="footer-nav-title">Navigation</span>
+            <ul class="footer-nav-links">
+              <li><a href="index.html" class="footer-nav-link">Overview</a></li>
+              <li><a href="flight-status.html" class="footer-nav-link">Flight Status</a></li>
+              <li><a href="gates.html" class="footer-nav-link">Gates</a></li>
+              <li><a href="about.html" class="footer-nav-link">About</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-disclaimer-card">
+            <i data-lucide="info" class="disclaimer-icon"></i>
+            <div class="disclaimer-details">
+              <span class="disclaimer-title">Technical Disclaimer</span>
+              <p class="disclaimer-text">
+                Flight information shown in this demonstration is simulated and is not sourced from live commercial aviation feeds.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <span class="footer-copyright">&copy; 2026 AirTrack Project. All rights reserved.</span>
+          <div class="footer-meta">
+            <span>Operations Control Board</span>
+            <span>v1.2.0</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- MODAL: ANNOUNCEMENTS DRAWER -->
+  <div class="modal-overlay" id="announcements-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--border-color); background-color: var(--bg-card);">
+        <h3 class="modal-card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="bell" style="color: var(--accent-blue);"></i>
+          <span>Airport Announcement Center</span>
+        </h3>
+        <button class="modal-close-btn" id="passenger-notification-close" aria-label="Close announcements panel">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="announcements-toolbar" style="padding: 0.75rem 1.5rem; display: flex; justify-content: flex-end; border-bottom: 1px dashed var(--border-color); background: var(--bg-card);">
+        <button class="search-button" id="btn-mark-all-read" style="padding: 0.35rem 0.75rem; font-size: 0.7rem; display: flex; align-items: center; gap: 0.25rem;">
+          <i data-lucide="check-check" style="width: 14px; height: 14px;"></i>
+          <span>Mark All Read</span>
+        </button>
+      </div>
+      <div class="modal-body" id="announcements-modal-body" style="padding: 1rem 1.5rem; overflow-y: auto; max-height: calc(100vh - 180px); display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Populated dynamically by script.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CDNs & Main Scripts -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="script.js?v=4" defer></script>
+</body>
+</html>

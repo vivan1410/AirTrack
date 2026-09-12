@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passenger Sign In — AirTrack</title>
+  <meta name="description" content="Sign In to your passenger profile to track watched flights, watch gates, and inspect concourses.">
+  <link rel="stylesheet" href="/admin/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js?v=2"></script>
+  <script src="/auth-helper.js?v=2"></script>
+  <script>
+    // Redirect if already logged in
+    document.documentElement.style.display = 'none';
+    window.addEventListener('DOMContentLoaded', async () => {
+      const client = getSupabaseClient();
+      if (client) {
+        const { data: { session } } = await client.auth.getSession();
+        if (session) {
+          window.location.href = '/user/index.html';
+          return;
+        }
+      } else {
+        if (isUserAuthenticated()) {
+          window.location.href = '/user/index.html';
+          return;
+        }
+      }
+      document.documentElement.style.display = '';
+    });
+  </script>
+  <style>
+    :root {
+      --primary-navy: #0f172a;
+      --bg-panel: #060913;
+      --gold-accent: #c5a880;
+      --cream-card: #fdfbf7;
+      --text-dark: #0f172a;
+      --text-light: #f8fafc;
+      --text-muted: #64748b;
+      --border-color: rgba(15, 23, 42, 0.08);
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg-panel);
+      font-family: var(--font-sans);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      width: 100vw;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-light);
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Cinematic Airport Horizon Background - EXACT MATCH TO REFERENCE IMAGE */
+    .airport-hero-viewport {
+      position: relative;
+      width: 100vw;
+      min-height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #060913 url('/user/assets/clean-hero-bg.jpg') center 15% / cover no-repeat;
+      padding: 1.5rem 1rem;
+    }
+
+    /* Subtle Dusk Vignette Overlay */
+    .dusk-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(6, 10, 22, 0.05) 0%, rgba(4, 7, 16, 0.4) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Side Ambient Aviation Typography */
+    .side-brand-text {
+      position: absolute;
+      z-index: 3;
+      pointer-events: none;
+      font-family: var(--font-sans);
+      color: rgba(255, 255, 255, 0.7);
+      letter-spacing: 0.4em;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      line-height: 2.2;
+      user-select: none;
+    }
+
+    .side-brand-text.left-side {
+      top: 50%;
+      left: 4%;
+      transform: translateY(-50%);
+    }
+
+    .side-brand-text.right-side {
+      top: 10%;
+      right: 4%;
+      text-align: right;
+    }
+
+    .side-brand-text .highlight {
+      color: var(--gold-accent);
+    }
+
+    .side-accent-bar {
+      width: 40px;
+      height: 2px;
+      background: var(--gold-accent);
+      margin-top: 0.8rem;
+      opacity: 0.8;
+    }
+
+    .right-side .side-accent-bar {
+      margin-left: auto;
+    }
+
+    /* Sleek Compact Vertical Login Card - EXACT MATCH TO REFERENCE IMAGE (390px) */
+    .boarding-pass {
+      width: 100%;
+      max-width: 390px;
+      background: var(--cream-card);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 35px 70px -15px rgba(0, 0, 0, 0.75), 0 0 60px rgba(197, 168, 128, 0.12);
+      z-index: 10;
+      position: relative;
+      overflow: hidden;
+      margin: 11.5rem auto 1.5rem auto;
+      padding: 2.25rem 2rem 1.75rem 2rem;
+      color: var(--text-dark);
+      opacity: 1;
+      transform: none;
+    }
+
+    .pass-label {
+      font-size: 0.65rem;
+      letter-spacing: 2.5px;
+      font-weight: 800;
+      color: var(--gold-accent);
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+    }
+
+    .pass-title {
+      font-family: var(--font-serif);
+      font-size: 2.1rem;
+      font-weight: 700;
+      margin: 0 0 0.4rem;
+      color: #1d273b;
+      line-height: 1.1;
+    }
+
+    .pass-subtitle {
+      font-size: 0.82rem;
+      color: #57606f;
+      margin: 0 0 1.5rem;
+      line-height: 1.4;
+    }
+
+    /* Forms input fields */
+    .form-group {
+      margin-bottom: 1.1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #57606f;
+      margin-bottom: 0.4rem;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.03);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem;
+      color: var(--text-dark);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-sizing: border-box;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      background: white;
+      border-color: var(--gold-accent);
+      box-shadow: 0 0 0 3px rgba(197, 168, 128, 0.15);
+    }
+
+    .password-wrapper {
+      position: relative;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #747d8c;
+      cursor: pointer;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .options-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.85rem;
+      font-size: 0.78rem;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .checkbox-group input {
+      accent-color: #14213d;
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+    }
+
+    .checkbox-group label {
+      color: #57606f;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .forgot-link {
+      color: var(--gold-accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .forgot-link:hover {
+      color: #a48455;
+    }
+
+    /* Primary submit CTA button */
+    .btn-submit-premium {
+      width: 100%;
+      background: #14213d;
+      color: white;
+      border: none;
+      padding: 0.8rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 1.25rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background-color 0.2s, transform 0.1s;
+      letter-spacing: 1px;
+    }
+
+    .btn-submit-premium:hover {
+      background: #0d1629;
+    }
+
+    .btn-submit-premium:disabled {
+      background: rgba(20, 33, 61, 0.4);
+      cursor: not-allowed;
+    }
+
+    .arrow-box {
+      background: var(--gold-accent);
+      color: #14213d;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      margin-left: 0.25rem;
+      letter-spacing: 1px;
+    }
+
+    /* Barcode styling */
+    .barcode-container {
+      margin-top: 1.25rem;
+      text-align: center;
+    }
+
+    .barcode {
+      width: 100%;
+      height: 32px;
+      background: repeating-linear-gradient(90deg, #14213d, #14213d 2px, transparent 2px, transparent 6px, #14213d 6px, #14213d 7px, transparent 7px, transparent 11px);
+      opacity: 0.95;
+      margin-bottom: 0.4rem;
+    }
+
+    .barcode-subtext {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem;
+      letter-spacing: 2.5px;
+      color: #747d8c;
+      text-transform: uppercase;
+    }
+
+    /* Footer layouts */
+    .pass-footer {
+      border-top: 1px solid rgba(15, 23, 42, 0.08);
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      align-items: center;
+      font-size: 0.75rem;
+      color: #57606f;
+    }
+
+    .pass-footer a {
+      color: #14213d;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .pass-footer a:hover {
+      text-decoration: underline;
+    }
+
+    .admin-portal-link {
+      color: var(--gold-accent) !important;
+      font-weight: 600 !important;
+      transition: color 0.2s;
+    }
+
+    .admin-portal-link:hover {
+      color: #a48455 !important;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1024px) {
+      .side-brand-text {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .boarding-pass {
+        max-width: 92vw;
+        padding: 1.75rem 1.25rem 1.25rem 1.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="airport-hero-viewport">
+    <div class="dusk-overlay"></div>
+
+    <!-- Ambient Side Typography -->
+    <div class="side-brand-text left-side">
+      <div>REAL TIME</div>
+      <div>FLIGHT INFO</div>
+      <div>AT YOUR</div>
+      <div class="highlight">FINGERTIPS</div>
+      <div class="side-accent-bar"></div>
+    </div>
+
+    <div class="side-brand-text right-side">
+      <div>TRACK</div>
+      <div>TRAVEL</div>
+      <div class="highlight">TAKE OFF</div>
+      <div class="side-accent-bar"></div>
+    </div>
+
+    <!-- Main Boarding Pass Card - Compact Vertical Card (EXACT MATCH TO REFERENCE IMAGE) -->
+    <div class="boarding-pass" id="boarding-pass">
+      <div class="pass-label">Passenger Sign In</div>
+      <h2 class="pass-title">Where to, today?</h2>
+      <p class="pass-subtitle">Sign in to track flights, watch gates, and get real-time updates.</p>
+
+      <div class="error-alert" id="error-alert" style="display: none; padding: 0.65rem; background: rgba(220, 38, 38, 0.05); border: 1px solid rgba(220, 38, 38, 0.15); color: #ef4444; border-radius: 6px; font-size: 0.8rem; margin-bottom: 1rem; font-weight: 500;"></div>
+
+      <form id="sign-in-form">
+        <div class="form-group">
+          <label class="form-label" for="signin-email">Email or Phone</label>
+          <input class="form-input" type="email" id="signin-email" required placeholder="you@example.com" autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="signin-password">Password</label>
+          <div class="password-wrapper">
+            <input class="form-input" type="password" id="signin-password" required placeholder="Enter your password" autocomplete="current-password" style="padding-right: 3.5rem;">
+            <button type="button" class="password-toggle-btn" id="btn-toggle-password">Show</button>
+          </div>
+        </div>
+
+        <div class="options-row">
+          <div class="checkbox-group">
+            <input type="checkbox" id="remember-me">
+            <label for="remember-me">Remember Me</label>
+          </div>
+          <a href="#" onclick="alert('Demo reset instructions: please use the standard credentials user@airtrack.demo / AirTrack@123'); return false;" class="forgot-link">Forgot password?</a>
+        </div>
+
+        <button class="btn-submit-premium" type="submit" id="btn-submit">
+          <span>Sign in</span>
+          <span class="arrow-box">→ GATE</span>
+        </button>
+      </form>
+
+      <div style="display: flex; align-items: center; margin: 1rem 0; color: #747d8c; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px;">
+        <div style="flex-grow: 1; height: 1px; background: rgba(15, 23, 42, 0.08);"></div>
+        <span style="padding: 0 0.6rem; font-weight: 700;">or</span>
+        <div style="flex-grow: 1; height: 1px; background: rgba(15, 23, 42, 0.08);"></div>
+      </div>
+
+      <button type="button" class="btn-submit-premium" id="btn-google-login" style="background: transparent; border: 1px solid rgba(15, 23, 42, 0.15); color: #14213d; margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: none;">
+        <svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
+        <span>Continue with Google</span>
+      </button>
+
+      <!-- Barcode component -->
+      <div class="barcode-container">
+        <div class="barcode"></div>
+        <div class="barcode-subtext">BOARDING &bull; AIRTRACK &bull; NOT VALID FOR TRAVEL</div>
+      </div>
+
+      <div class="pass-footer">
+        <div>Don't have an account? <a href="register.html">Create one</a> &mdash; it takes a minute.</div>
+        <div style="margin-top: 0.25rem;"><a href="/admin/login.html" class="admin-portal-link">Operations & admin portal &rarr;</a></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Parse query params for redirect errors
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('error');
+    const errorAlert = document.getElementById('error-alert');
+    if (err && errorAlert) {
+      errorAlert.style.display = 'block';
+      errorAlert.textContent = err;
+    }
+
+    // Password visibility toggle
+    const pwdInput = document.getElementById('signin-password');
+    const pwdToggle = document.getElementById('btn-toggle-password');
+    if (pwdToggle && pwdInput) {
+      pwdToggle.addEventListener('click', () => {
+        const isPwd = pwdInput.type === 'password';
+        pwdInput.type = isPwd ? 'text' : 'password';
+        pwdToggle.textContent = isPwd ? 'Hide' : 'Show';
+      });
+    }
+
+    // Submit listener
+    const signinForm = document.getElementById('sign-in-form');
+    const btnSubmit = document.getElementById('btn-submit');
+
+    if (signinForm) {
+      signinForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        // Visual loading state
+        btnSubmit.disabled = true;
+        const btnText = btnSubmit.querySelector('span');
+        btnText.textContent = "Signing in...";
+
+        errorAlert.style.display = 'none';
+
+        const email = document.getElementById('signin-email').value.trim();
+        const password = pwdInput.value;
+
+        // Bounded delay to simulate network connection checks
+        setTimeout(async () => {
+          const auth = await loginUser(email, password);
+          if (auth.success) {
+            // Find redirect URL
+            let dest = sessionStorage.getItem('airtrack_user_redirect_dest') || '/user/index.html';
+            sessionStorage.removeItem('airtrack_user_redirect_dest');
+            if (dest === '/' || dest === '') dest = '/user/index.html';
+            window.location.href = dest;
+          } else {
+            errorAlert.style.display = 'block';
+            errorAlert.textContent = auth.error;
+            btnSubmit.disabled = false;
+            btnText.textContent = "Sign In";
+          }
+        }, 800);
+      });
+    }
+
+    // Google Sign-In Trigger
+    const btnGoogleLogin = document.getElementById('btn-google-login');
+    if (btnGoogleLogin) {
+      btnGoogleLogin.addEventListener('click', async () => {
+        if (errorAlert) errorAlert.style.display = 'none';
+        const btnText = btnGoogleLogin.querySelector('span');
+        const origText = btnText ? btnText.textContent : "Continue with Google";
+        if (btnText) btnText.textContent = "Connecting to Google...";
+        btnGoogleLogin.disabled = true;
+
+        const auth = await loginWithGoogleOAuth('user');
+        if (!auth.success) {
+          if (errorAlert) {
+            errorAlert.style.display = 'block';
+            errorAlert.textContent = auth.error || "Google sign-in could not be completed.";
+          }
+          if (btnText) btnText.textContent = origText;
+          btnGoogleLogin.disabled = false;
+        }
+      });
+    }
+  </script>
+</body>
+</html>

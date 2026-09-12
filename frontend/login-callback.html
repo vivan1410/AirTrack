@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authenticating — AirTrack</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js"></script>
+  <script src="/auth-helper.js"></script>
+  <style>
+    body {
+      background: #0a0f1d;
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .loader-container {
+      text-align: center;
+      max-width: 500px;
+      padding: 2rem;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s infinite linear;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .error-box {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(220, 38, 38, 0.12);
+      border: 1px solid rgba(220, 38, 38, 0.3);
+      border-radius: 8px;
+      color: #fca5a5;
+      font-family: monospace;
+      font-size: 0.85rem;
+      text-align: left;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+    .btn-return {
+      margin-top: 1.25rem;
+      display: inline-block;
+      padding: 0.65rem 1.4rem;
+      background: #3b82f6;
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+    .btn-return:hover {
+      background: #2563eb;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="loader-container" id="loader-container">
+    <div class="spinner" id="spinner"></div>
+    <h3 id="callback-status-title">Authorizing Session...</h3>
+    <p id="callback-status-sub" style="color: #9ca3af; font-size: 0.9rem;">Verifying credentials with AirTrack Cloud</p>
+    <div id="error-display" style="display: none;"></div>
+  </div>
+
+  <script>
+    function displayCallbackError(title, detail, returnUrl) {
+      const spinner = document.getElementById('spinner');
+      const titleEl = document.getElementById('callback-status-title');
+      const subEl = document.getElementById('callback-status-sub');
+      const errorDiv = document.getElementById('error-display');
+
+      if (spinner) spinner.style.display = 'none';
+      if (titleEl) titleEl.textContent = title;
+      if (subEl) subEl.textContent = "OAuth authorization could not be completed.";
+      if (errorDiv) {
+        errorDiv.style.display = 'block';
+        errorDiv.innerHTML = `
+          <div class="error-box">${detail}</div>
+          <a class="btn-return" href="${returnUrl}">Return to Login Page</a>
+        `;
+      }
+    }
+
+    async function handleCallback() {
+      console.log("[OAuth Callback] Full Callback URL:", window.location.href);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+
+      const code = urlParams.get('code');
+      const errorMsg = urlParams.get('error_description') || hashParams.get('error_description') ||
+                       urlParams.get('error') || hashParams.get('error');
+      const errorCode = urlParams.get('error_code') || hashParams.get('error_code');
+
+      console.log("[OAuth Callback] Has 'code' query param:", !!code);
+      console.log("[OAuth Callback] Has hash fragment tokens:", hashParams.has('access_token'));
+      console.log("[OAuth Callback] OAuth error parameters present:", { error: errorMsg, error_code: errorCode });
+
+      const role = sessionStorage.getItem('airtrack_google_login_role') || 'user';
+      const loginRedirect = role === 'admin' ? '/admin/login.html' : (window.location.port === '8080' ? '/user/login.html' : '/login');
+
+      if (errorMsg || errorCode) {
+        const fullErr = `Error Code: ${errorCode || 'N/A'}\nDescription: ${errorMsg || 'Unknown OAuth error'}`;
+        console.error("[OAuth Callback] Redirect error received:", fullErr);
+        displayCallbackError("Authentication Failed", fullErr, loginRedirect);
+        return;
+      }
+
+      const client = getSupabaseClient();
+      if (!client) {
+        console.error("[OAuth Callback] Supabase client unavailable.");
+        displayCallbackError("Client Error", "Supabase client unconfigured. Please check SUPABASE_URL and SUPABASE_ANON_KEY.", loginRedirect);
+        return;
+      }
+
+      try {
+        let session = null;
+        let authErr = null;
+
+        // 1. Check if session was automatically resolved by client auto-detection (detectSessionInUrl)
+        const initialRes = await client.auth.getSession();
+        if (initialRes && initialRes.data && initialRes.data.session) {
+          session = initialRes.data.session;
+          console.log("[OAuth Callback] Session automatically resolved via client initialization!");
+        }
+
+        // 2. PKCE Code exchange fallback
+        if (!session && code) {
+          console.log("[OAuth Callback] Authorization code detected. Calling exchangeCodeForSession...");
+          try {
+            const { data: exchangeData, error: exchangeError } = await client.auth.exchangeCodeForSession(code);
+            if (exchangeData && exchangeData.session) {
+              session = exchangeData.session;
+              console.log("[OAuth Callback] exchangeCodeForSession succeeded!");
+            } else if (exchangeError) {
+              console.warn("[OAuth Callback] exchangeCodeForSession error notice:", exchangeError.message);
+              // Re-check getSession() in case detectSessionInUrl completed the PKCE exchange concurrently
+              const recheckRes = await client.auth.getSession();
+              if (recheckRes && recheckRes.data && recheckRes.data.session) {
+                session = recheckRes.data.session;
+                console.log("[OAuth Callback] Session recovered via getSession after auto PKCE exchange!");
+              } else {
+                authErr = exchangeError;
+              }
+            }
+          } catch (exErr) {
+            console.error("[OAuth Callback] exchangeCodeForSession exception:", exErr);
+            const recheckRes = await client.auth.getSession();
+            if (recheckRes && recheckRes.data && recheckRes.data.session) {
+              session = recheckRes.data.session;
+            } else {
+              authErr = exErr;
+            }
+          }
+        }
+
+        // 2. Implicit Grant Token Exchange (if #access_token=... is in hash fragment)
+        if (!session && !authErr && hashParams.has('access_token')) {
+          console.log("[OAuth Callback] Implicit grant tokens detected in URL hash. Resolving session...");
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+
+          if (accessToken && refreshToken) {
+            try {
+              const { data: setData, error: setError } = await client.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+              });
+              if (setData && setData.session) {
+                session = setData.session;
+                console.log("[OAuth Callback] setSession from hash succeeded!");
+              } else if (setError) {
+                console.warn("[OAuth Callback] setSession from hash error:", setError.message);
+              }
+            } catch (setErr) {
+              console.error("[OAuth Callback] setSession exception:", setErr);
+            }
+          }
+        }
+
+        // 3. Fallback to getSession
+        if (!session && !authErr) {
+          console.log("[OAuth Callback] Checking getSession state...");
+          const sessionRes = await client.auth.getSession();
+          session = sessionRes.data ? sessionRes.data.session : null;
+          authErr = sessionRes.error;
+        }
+
+        if (!session && !authErr) {
+          console.log("[OAuth Callback] Awaiting auth state change resolution...");
+          await new Promise((resolve) => {
+            const { data: { subscription } } = client.auth.onAuthStateChange((event, newSession) => {
+              if (newSession) {
+                session = newSession;
+                subscription.unsubscribe();
+                resolve();
+              }
+            });
+            setTimeout(() => {
+              subscription.unsubscribe();
+              resolve();
+            }, 2000);
+          });
+        }
+
+        if (authErr) {
+          console.error("[OAuth Callback] Error parsing session:", authErr.message);
+          displayCallbackError("Session Error", authErr.message, loginRedirect);
+          return;
+        }
+
+        if (!session) {
+          console.warn("[OAuth Callback] No active session found.");
+          displayCallbackError("No Active Session", "No active session was established after OAuth redirect. Please try signing in again.", loginRedirect);
+          return;
+        }
+
+        const email = session.user.email;
+        const normalizedEmail = email.trim().toLowerCase();
+        console.log("[OAuth Callback] Authenticated User Email:", email);
+
+        if (role === 'admin') {
+          console.log("[OAuth Callback] Verifying administrator status with backend endpoint...");
+          try {
+            const token = session.access_token;
+            const verifyRes = await fetch(getBackendApiUrl('/api/admin/verify'), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            console.log("[OAuth Callback] Administrator verification response status:", verifyRes.status);
+
+            if (verifyRes.ok) {
+              const verifyResult = await verifyRes.json();
+              console.log("[OAuth Callback] Administrator verified successfully as:", verifyResult.admin.role);
+              
+              sessionStorage.setItem('airtrack_admin_session', JSON.stringify({
+                name: verifyResult.admin.name,
+                email: verifyResult.admin.email,
+                role: verifyResult.admin.role
+              }));
+              sessionStorage.removeItem('airtrack_user_session');
+              window.location.href = '/admin/index.html';
+            } else {
+              const errData = await verifyRes.json();
+              console.warn("[OAuth Callback] Unauthorized Google account attempt. Restricting access.");
+              await client.auth.signOut();
+              sessionStorage.removeItem('airtrack_admin_session');
+              displayCallbackError("Access Denied", errData.error || "This Google account is not authorized for Operations control deck access.", '/admin/login.html');
+            }
+          } catch (verifyErr) {
+            console.error("[OAuth Callback] Backend verification call failed:", verifyErr);
+            await client.auth.signOut();
+            displayCallbackError("Verification Error", verifyErr.message || "Failed to reach backend verification service.", '/admin/login.html');
+          }
+        } else {
+          // Passenger login
+          console.log("[OAuth Callback] Resolving passenger profile.");
+          const displayName = (session.user.user_metadata && (session.user.user_metadata.full_name || session.user.user_metadata.name)) || normalizedEmail.split('@')[0];
+          
+          try {
+            const { data: profile } = await client
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id);
+
+            if (!profile || profile.length === 0) {
+              console.log("[OAuth Callback] No profile found. Creating profile for user:", displayName);
+              const { error: insertError } = await client
+                .from('profiles')
+                .insert([{ id: session.user.id, name: displayName, email: normalizedEmail }]);
+              if (insertError) {
+                console.warn("[OAuth Callback] Profile insertion warning:", insertError.message);
+              }
+            }
+          } catch (profileErr) {
+            console.error("[OAuth Callback] Error verifying profile record:", profileErr);
+          }
+
+          sessionStorage.setItem('airtrack_user_session', JSON.stringify({
+            name: displayName,
+            email: normalizedEmail
+          }));
+          sessionStorage.removeItem('airtrack_admin_session');
+
+          let dest = sessionStorage.getItem('airtrack_user_redirect_dest') || '/';
+          sessionStorage.removeItem('airtrack_user_redirect_dest');
+          if (window.location.port === '8080' && (dest === '/' || dest === '')) {
+            dest = '/user/index.html';
+          }
+          console.log("[OAuth Callback] Passenger login successful. Redirecting to:", dest);
+          window.location.href = dest;
+        }
+      } catch (e) {
+        console.error("[OAuth Callback] Exception caught:", e);
+        displayCallbackError("System Exception", e.message || "An unexpected error occurred during authentication.", loginRedirect);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', handleCallback);
+  </script>
+</body>
+</html>

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operations Simulator — AirTrack Admin</title>
+    <style>
+    html, body {
+      background-color: #040914 !important;
+      color-scheme: dark;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    #admin-page-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: #040914;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 1;
+      transition: opacity 0.15s ease;
+    }
+    #admin-page-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .admin-loader-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: #f8fafc;
+      font-family: 'Plus Jakarta Sans', sans-serif, system-ui;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .admin-loader-spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(6, 182, 212, 0.2);
+      border-top-color: #06b6d4;
+      border-radius: 50%;
+      animation: adminSpin 0.6s linear infinite;
+    }
+    @keyframes adminSpin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+  <link rel="stylesheet" href="/admin/style.css?v=7">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js"></script>
+  <script src="/auth-helper.js"></script>
+    <script>
+    console.log('AIRTRACK ADMIN PAGE START');
+    console.log('AIRTRACK ADMIN AUTH START');
+    requireAdminAuth().then(() => {
+      console.log('AIRTRACK ADMIN AUTH COMPLETE');
+      document.documentElement.classList.add('admin-authed');
+      const loader = document.getElementById('admin-page-loader');
+      if (loader) {
+        loader.classList.add('hidden');
+        setTimeout(() => {
+          try { loader.remove(); } catch (e) {}
+        }, 200);
+      }
+    }).catch(err => {
+      console.error('AIRTRACK ADMIN AUTH ERROR:', err);
+      const loader = document.getElementById('admin-page-loader');
+      if (loader) loader.classList.add('hidden');
+    });
+  </script>
+</head>
+<body>
+  <!-- PAGE LOADING OVERLAY -->
+  <div id="admin-page-loader">
+    <div class="admin-loader-content">
+      <div class="admin-loader-spinner"></div>
+      <span>Loading AirTrack Operations...</span>
+    </div>
+  </div>
+
+  <!-- TOAST ALERTS OVERLAY -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- MAIN CONTAINER -->
+  <div id="admin-layout">
+    
+    <!-- LEFT SIDEBAR NAVIGATION -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="logo-icon"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3.5c-.5-.5-2.5 0-4 1.5L13.5 8.5 5.3 6.7c-.8-.2-1.6.3-1.8 1.1-.2.8.3 1.6 1.1 1.8l9.1 2-5 5-3.7-.7c-.5-.1-1.1.1-1.4.5l-.8.8c-.3.3-.3.9 0 1.2l3.4 3.4c.3.3.9.3 1.2 0l.8-.8c.4-.3.6-.9.5-1.4l-.7-3.7 5-5 2 9.1c.2.8 1 1.3 1.8 1.1.8-.2 1.3-1 1.1-1.8z"/></svg>
+          <span class="logo-text">AIRTRACK</span>
+        </div>
+        <button class="btn-sidebar-toggle" id="admin-sidebar-toggle">
+          <i data-lucide="chevron-left"></i>
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/admin/index.html" class="nav-item" id="nav-dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span class="nav-text">Dashboard</span>
+        </a>
+        <a href="/admin/flights.html" class="nav-item" id="nav-flights">
+          <i data-lucide="plane"></i>
+          <span class="nav-text">Flights</span>
+        </a>
+        <a href="/admin/gates.html" class="nav-item" id="nav-gates">
+          <i data-lucide="door-open"></i>
+          <span class="nav-text">Gates & Bays</span>
+        </a>
+        <a href="/admin/disruptions.html" class="nav-item" id="nav-disruptions">
+          <i data-lucide="alert-triangle"></i>
+          <span class="nav-text">Disruptions</span>
+        </a>
+        <a href="/admin/simulator.html" class="nav-item active" id="nav-simulator">
+          <i data-lucide="terminal"></i>
+          <span class="nav-text">Operations Simulator</span>
+        </a>
+        <a href="/admin/announcements.html" class="nav-item" id="nav-announcements">
+          <i data-lucide="megaphone"></i>
+          <span class="nav-text">Announcements</span>
+        </a>
+        <a href="/admin/schedule.html" class="nav-item" id="nav-schedule">
+          <i data-lucide="calendar"></i>
+          <span class="nav-text">Flight Schedule</span>
+        </a>
+        <a href="/admin/activity.html" class="nav-item" id="nav-activity">
+          <i data-lucide="activity"></i>
+          <span class="nav-text">Audit Logs</span>
+        </a>
+        <a href="/admin/administrators.html" class="nav-item" id="nav-administrators">
+          <i data-lucide="users"></i>
+          <span class="nav-text">Administrators</span>
+        </a>
+        <a href="/admin/settings.html" class="nav-item" id="nav-settings">
+          <i data-lucide="settings"></i>
+          <span class="nav-text">System Settings</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- RIGHT CONTENT SHELL -->
+    <div class="content-wrapper">
+      
+      <!-- TOP NAVIGATION BAR -->
+      <header class="header-bar">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <button class="hamburger-toggle" id="btn-hamburger">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="header-title-section">
+            <span class="header-system-tag">AirTrack Operations</span>
+            <h1 class="header-page-title" id="page-header-title">Operations Simulator</h1>
+          </div>
+        </div>
+
+        <div class="header-controls">
+          <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span>LIVE SYSTEM</span>
+          </div>
+
+          <!-- Notification drop center -->
+          <div style="position: relative;">
+            <button class="btn-notification-trigger" id="btn-notification">
+              <i data-lucide="bell"></i>
+              <span class="notification-badge" id="notification-count" style="display: none;">0</span>
+            </button>
+            <div class="notification-dropdown" id="notification-dropdown">
+              <div class="notification-dropdown-header">
+                <span>Active Bulletins</span>
+                <span style="font-size: 0.65rem; color: var(--accent-cyan); cursor: pointer;" id="btn-clear-notifications">Mark all read</span>
+              </div>
+              <div class="notification-list" id="header-notification-list">
+                <!-- Filled dynamically by script -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile drop toggle -->
+          <div class="profile-menu-container">
+            <div class="profile-trigger" id="profile-menu-trigger">
+              <div class="avatar-icon-box" id="avatar-letters">OO</div>
+              <div class="avatar-info">
+                <span class="avatar-name" id="admin-display-name">Operations Officer</span>
+                <span class="avatar-role" id="admin-display-role">Super Admin</span>
+              </div>
+              <i data-lucide="chevron-down" style="width: 12px; height: 12px; color: var(--text-secondary);"></i>
+            </div>
+            <div class="profile-dropdown-menu" id="profile-dropdown-menu">
+              <div class="profile-dropdown-item" onclick="alert('Profile details: ' + (JSON.parse(sessionStorage.getItem('airtrack_admin_session'))?.email || 'admin@airtrack.demo'))">
+                <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                <span>My Profile</span>
+              </div>
+              <a href="/admin/administrators.html" class="profile-dropdown-item">
+                <i data-lucide="shield" style="width: 14px; height: 14px;"></i>
+                <span>Administrator Management</span>
+              </a>
+              <div class="profile-dropdown-item" onclick="alert('Security status: verified active session')">
+                <i data-lucide="lock" style="width: 14px; height: 14px;"></i>
+                <span>Security</span>
+              </div>
+              <div class="profile-dropdown-item logout-action" id="btn-header-logout">
+                <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+                <span>Logout</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- MAIN PAGE CONTENT -->
+      <main class="main-content" style="max-width: 800px;">
+        <div class="view-title-row">
+          <h1>Operations Control Simulator</h1>
+          <p>Simulate operational events to test flight, gate, and user notification workflows.</p>
+        </div>
+
+        <div class="dashboard-card">
+          <div class="card-header">
+            <span class="card-title"><i data-lucide="terminal"></i> Event Simulation Board</span>
+          </div>
+
+          <div class="simulator-control-panel">
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 1.25rem;">
+              Select a target flight and operational event type below to execute database updates, write activity logs, update flight boards, and broadcast passenger announcements.
+            </p>
+
+            <form id="controlled-simulator-form" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 1.25rem;">
+              
+              <!-- STEP 1: SELECT FLIGHT -->
+              <div class="form-group">
+                <label for="sim-select-flight" class="form-label" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.4rem;">
+                  <i data-lucide="plane" style="width: 16px; height: 16px; color: var(--accent-cyan);"></i>
+                  <span>1. SELECT FLIGHT</span>
+                </label>
+                <select id="sim-select-flight" class="form-control" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem;">
+                  <option value="">-- Select a flight... --</option>
+                  <!-- Dynamically populated by script -->
+                </select>
+              </div>
+
+              <!-- STEP 2: SELECT EVENT -->
+              <div class="form-group" id="sim-group-event-type" style="display: none;">
+                <label for="sim-select-event" class="form-label" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.4rem;">
+                  <i data-lucide="zap" style="width: 16px; height: 16px; color: var(--accent-cyan);"></i>
+                  <span>2. EVENT TYPE</span>
+                </label>
+                <select id="sim-select-event" class="form-control" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem;">
+                  <option value="">-- Select an event... --</option>
+                  <option value="gate_change">Gate Change</option>
+                  <option value="delay">Flight Delay</option>
+                  <option value="boarding">Start Boarding</option>
+                  <option value="cancellation">Cancel Flight</option>
+                </select>
+              </div>
+
+              <!-- STEP 3: EVENT SPECIFIC INPUTS PANEL -->
+              <div id="sim-event-details-panel" style="display: none; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;">
+                
+                <!-- FLIGHT SUMMARY METRICS -->
+                <div id="sim-flight-summary-box" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.85rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
+                  <div>
+                    <span style="color: var(--text-secondary);">Target Flight:</span>
+                    <strong id="sim-summary-flight-num" style="color: var(--accent-cyan); font-family: var(--font-mono); margin-left: 0.35rem;">--</strong>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-secondary);">Current Status:</span>
+                    <span id="sim-summary-status" class="badge on-time" style="margin-left: 0.35rem;">--</span>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-secondary);">Current Gate:</span>
+                    <strong id="sim-summary-gate" style="color: white; margin-left: 0.35rem;">--</strong>
+                  </div>
+                </div>
+
+                <!-- EVENT CONFIG: GATE CHANGE -->
+                <div id="sim-config-gate_change" class="sim-config-section" style="display: none;">
+                  <div class="form-group">
+                    <label for="sim-input-new-gate" class="form-label" style="font-weight: 600; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.4rem; display: block;">
+                      Select New Gate
+                    </label>
+                    <select id="sim-input-new-gate" class="form-control" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.65rem 0.85rem; border-radius: 6px; font-size: 0.85rem;">
+                      <option value="">-- Select a new gate... --</option>
+                    </select>
+                  </div>
+                  <button type="button" class="btn-primary btn-sim-trigger simulate-gate-change" id="btn-sim-gate" style="margin-top: 1rem; width: 100%; justify-content: center; height: 42px;">
+                    <i data-lucide="git-branch"></i>
+                    <span>Simulate Gate Change</span>
+                  </button>
+                </div>
+
+                <!-- EVENT CONFIG: DELAY -->
+                <div id="sim-config-delay" class="sim-config-section" style="display: none;">
+                  <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: center;">
+                    <div>
+                      <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Scheduled / Estimated Departure:</span>
+                      <strong id="sim-delay-current-time" style="font-family: var(--font-mono); font-size: 0.95rem; color: white;">--:--</strong>
+                    </div>
+                    <div>
+                      <label for="sim-input-delay-minutes" class="form-label" style="font-weight: 600; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.4rem; display: block;">
+                        Additional Delay
+                      </label>
+                      <select id="sim-input-delay-minutes" class="form-control" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.65rem 0.85rem; border-radius: 6px; font-size: 0.85rem;">
+                        <option value="15">+15 Minutes</option>
+                        <option value="30" selected>+30 Minutes</option>
+                        <option value="45">+45 Minutes</option>
+                        <option value="60">+60 Minutes</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-primary btn-sim-trigger simulate-delay" id="btn-sim-delay" style="margin-top: 1rem; width: 100%; justify-content: center; height: 42px;">
+                    <i data-lucide="clock"></i>
+                    <span>Simulate Delay Event</span>
+                  </button>
+                </div>
+
+                <!-- EVENT CONFIG: BOARDING -->
+                <div id="sim-config-boarding" class="sim-config-section" style="display: none;">
+                  <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                    Initiating boarding will update the flight status to <strong>BOARDING</strong>, mark the assigned gate as active boarding, and broadcast an urgent boarding call notice to passengers.
+                  </p>
+                  <button type="button" class="btn-primary btn-sim-trigger simulate-boarding" id="btn-sim-boarding" style="width: 100%; justify-content: center; height: 42px;">
+                    <i data-lucide="plane-takeoff"></i>
+                    <span>Start Flight Boarding</span>
+                  </button>
+                </div>
+
+                <!-- EVENT CONFIG: CANCELLATION -->
+                <div id="sim-config-cancellation" class="sim-config-section" style="display: none;">
+                  <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 6px; padding: 0.85rem; margin-bottom: 1rem; color: var(--status-cancelled-text); font-size: 0.8rem; display: flex; align-items: center; gap: 0.65rem;">
+                    <i data-lucide="alert-triangle" style="flex-shrink: 0; width: 18px; height: 18px;"></i>
+                    <span><strong>WARNING:</strong> This action will mark the selected flight as CANCELLED, release any assigned gate back to available status, and issue a cancellation alert.</span>
+                  </div>
+                  <button type="button" class="btn-danger btn-sim-trigger simulate-cancellation" id="btn-sim-cancel" style="width: 100%; justify-content: center; height: 42px;">
+                    <i data-lucide="alert-octagon"></i>
+                    <span>Cancel Flight Operations</span>
+                  </button>
+                </div>
+
+              </div>
+
+            </form>
+
+            <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+              <button class="btn-simulator-action reset-action btn-sim-trigger reset-simulator" id="btn-sim-reset" style="height: 38px; font-size: 0.75rem;">
+                <i data-lucide="rotate-ccw"></i>
+                <span>Reset Operations Demo Data</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-card" style="margin-top: 1.5rem;">
+          <div class="card-header">
+            <span class="card-title"><i data-lucide="history"></i> Simulator Activity Log</span>
+          </div>
+          <div class="table-responsive">
+            <table class="flight-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Action</th>
+                  <th>Flight</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody id="simulator-log-body">
+                <!-- Populated dynamically by script -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/admin/script.js?v=7" defer></script>
+</body>
+</html>

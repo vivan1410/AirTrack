@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authorized Access Only — AirTrack Operations</title>
+  <meta name="description" content="Authorized operations control center login page for AirTrack airport dispatch board.">
+  <link rel="stylesheet" href="/admin/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/supabase-config.js"></script>
+  <script src="/auth-helper.js"></script>
+  <script>
+    // Redirect if already logged in
+    // document.documentElement.style.display = 'none';
+    window.addEventListener('DOMContentLoaded', async () => {
+      const client = getSupabaseClient();
+      if (client) {
+        const { data: { session } } = await client.auth.getSession();
+        if (session) {
+          // Check if admin matches database record
+          const email = session.user.email;
+          const { data: adminRecord } = await client
+            .from('administrators')
+            .select('*')
+            .eq('email', email)
+            .eq('status', 'active');
+          const isDefault = email.toLowerCase() === 'admin@airtrack.demo';
+          if (isDefault || (adminRecord && adminRecord.length > 0)) {
+            window.location.href = '/admin/index.html';
+            return;
+          }
+        }
+      } else {
+        if (isAdminAuthenticated()) {
+          window.location.href = '/admin/index.html';
+          return;
+        }
+      }
+      // document.documentElement.style.display = '';
+    });
+  </script>
+  <style>
+    :root {
+      --primary-cyan: #06b6d4;
+      --bg-panel: #040914; /* Deep dark blue */
+      --bg-card: rgba(6, 15, 30, 0.85);
+      --border-cyan: #0e3047;
+      --accent-cyan: #06b6d4;
+      --text-main: #e2e8f0;
+      --text-muted: #475569;
+      --font-technical: 'JetBrains Mono', monospace;
+    }
+
+    body {
+      background: var(--bg-panel);
+      font-family: var(--font-technical);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-main);
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Grid overlay */
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(6, 182, 212, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6, 182, 212, 0.02) 1px, transparent 1px);
+      background-size: 10px 10px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* Blueprint Corner Crop Marks */
+    .crop-mark {
+      position: absolute;
+      width: 25px;
+      height: 25px;
+      border: 1px solid rgba(6, 182, 212, 0.15);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .top-left { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+    .top-right { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+    .bottom-left { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+    .bottom-right { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
+    .blueprint-coords {
+      position: absolute;
+      bottom: 25px;
+      left: 50px;
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      color: rgba(6, 182, 212, 0.35);
+      z-index: 3;
+      pointer-events: none;
+      text-transform: uppercase;
+    }
+
+    /* Centered Technical Blueprint Card */
+    .blueprint-card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-card);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      border-radius: 4px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(6, 182, 212, 0.08);
+      z-index: 10;
+      position: relative;
+      overflow: hidden;
+      margin: 1.5rem;
+      box-sizing: border-box;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Inner card header block */
+    .card-meta-header {
+      border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.65rem;
+      color: var(--accent-cyan);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    /* Red Rubber Stamp */
+    .stamp-container {
+      position: absolute;
+      top: 45px;
+      right: 25px;
+      transform: rotate(12deg);
+      border: 2px dashed rgba(239, 68, 68, 0.65);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.55rem;
+      font-weight: 900;
+      color: rgba(239, 68, 68, 0.75);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: center;
+      pointer-events: none;
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .card-main-body {
+      padding: 2.5rem 2.25rem;
+    }
+
+    .card-headline {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin: 0 0 0.5rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin: 0 0 2rem;
+    }
+
+    /* Form controls layout */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .label-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .field-tag {
+      font-size: 0.6rem;
+      color: rgba(6, 182, 212, 0.4);
+    }
+
+    .form-input {
+      width: 100%;
+      background: #020617;
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: 4px;
+      padding: 0.75rem 1rem;
+      color: #ffffff;
+      font-family: var(--font-technical);
+      font-size: 0.9rem;
+      box-sizing: border-box;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+      background: rgba(6, 182, 212, 0.03);
+    }
+
+    .password-wrapper {
+      position: relative;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.7;
+    }
+
+    .password-toggle-btn:hover {
+      opacity: 1;
+    }
+
+    .options-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1rem;
+      font-size: 0.75rem;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .checkbox-group input {
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      color: #64748b;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .forgot-link {
+      color: var(--accent-cyan);
+      text-decoration: none;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+
+    .forgot-link:hover {
+      text-decoration: underline;
+      opacity: 1;
+    }
+
+    /* Actions button submit styling */
+    .btn-login {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      padding: 0.85rem;
+      border-radius: 4px;
+      font-family: var(--font-technical);
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn-login:hover {
+      background: rgba(6, 182, 212, 0.08);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+    }
+
+    .btn-login:disabled {
+      border-color: rgba(6, 182, 212, 0.3);
+      color: rgba(6, 182, 212, 0.3);
+      cursor: not-allowed;
+    }
+
+    .error-alert {
+      background: rgba(220, 38, 38, 0.05);
+      border: 1px solid rgba(220, 38, 38, 0.2);
+      color: #ef4444;
+      padding: 0.75rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-bottom: 1.25rem;
+      display: none;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .restricted-info {
+      text-align: center;
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-top: 1.5rem;
+      border-top: 1px solid rgba(6, 182, 212, 0.15);
+      padding-top: 1rem;
+      line-height: 1.4;
+    }
+
+    /* Bottom cell grids metadata block */
+    .card-meta-footer {
+      border-top: 1px solid rgba(6, 182, 212, 0.2);
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: rgba(6, 182, 212, 0.5);
+      letter-spacing: 0.5px;
+    }
+
+    .meta-cell {
+      padding: 0.75rem 1rem;
+      border-right: 1px solid rgba(6, 182, 212, 0.2);
+      box-sizing: border-box;
+    }
+
+    .meta-cell:last-child {
+      border-right: none;
+    }
+
+    .meta-cell-label {
+      color: var(--accent-cyan);
+      font-weight: 700;
+      margin-bottom: 2px;
+      display: block;
+    }
+
+    .meta-cell-val {
+      color: #94a3b8;
+    }
+
+    .notes-cell {
+      grid-column: span 3;
+      border-top: 1px solid rgba(6, 182, 212, 0.2);
+      padding: 0.75rem 1rem;
+      font-size: 0.55rem;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>  <!-- Blueprint Corner Crop Marks -->
+  <div class="crop-mark top-left"></div>
+  <div class="crop-mark top-right"></div>
+  <div class="crop-mark bottom-left"></div>
+  <div class="crop-mark bottom-right"></div>
+
+  <div class="blueprint-coords">12.9716&deg; N 77.5946&deg; E &bull; ALT 920M</div>
+
+  <div class="blueprint-card">
+    <div class="card-meta-header">
+      <span>AirTrack Operations</span>
+      <span>Dwg No. Ops-001 Rev. A</span>
+    </div>
+
+    <!-- Red Rubber Stamp -->
+    <div class="stamp-container">
+      Authorized<br>Access<br>Only
+    </div>
+
+    <div class="card-main-body">
+      <h1 class="card-headline">Operator Sign-In</h1>
+      <p class="card-subtitle">Present valid operator credentials to access flight, gate and dispatch control systems.</p>
+
+      <div class="error-alert" id="error-alert">Invalid administrator credentials.</div>
+
+      <form id="admin-login-form">
+        <div class="form-group">
+          <div class="label-wrapper">
+            <label class="form-label" for="admin-email">Operator ID</label>
+            <span class="field-tag">FLD-01</span>
+          </div>
+          <input class="form-input" type="email" id="admin-email" required placeholder="admin@airtrack.demo" autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <div class="label-wrapper">
+            <label class="form-label" for="admin-password">Access Code</label>
+            <span class="field-tag">FLD-02</span>
+          </div>
+          <div class="password-wrapper">
+            <input class="form-input" type="password" id="admin-password" required placeholder="••••••••" autocomplete="current-password" style="padding-right: 3.5rem;">
+            <button type="button" class="password-toggle-btn" id="btn-toggle-password">Show</button>
+          </div>
+        </div>
+
+        <div class="options-row">
+          <div class="checkbox-group">
+            <input type="checkbox" id="remember-device">
+            <label for="remember-device">Remember this station</label>
+          </div>
+          <a href="#" onclick="alert('Demo reset instructions: please use the standard credentials admin@airtrack.demo / AirTrack@123'); return false;" class="forgot-link">Forgot access code?</a>
+        </div>
+
+        <button class="btn-login" type="submit" id="btn-submit">
+          <span>Verify & Enter</span>
+        </button>
+      </form>
+
+      <div style="display: flex; align-items: center; margin: 1.25rem 0; color: rgba(6, 182, 212, 0.15); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px;">
+        <div style="flex-grow: 1; height: 1px; background: rgba(6, 182, 212, 0.15);"></div>
+        <span style="padding: 0 0.75rem; color: rgba(6, 182, 212, 0.4); font-weight: 700;">or</span>
+        <div style="flex-grow: 1; height: 1px; background: rgba(6, 182, 212, 0.15);"></div>
+      </div>
+
+      <button type="button" class="btn-login" id="btn-google-login" style="margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+        <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
+        <span>Access with Google</span>
+      </button>
+
+      <div class="restricted-info">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 2px; color: var(--accent-cyan);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Administrative access is restricted to authorized personnel. Public registry is disabled.
+      </div>
+    </div>
+
+    <!-- Bottom metadata cells -->
+    <div class="card-meta-footer">
+      <div class="meta-cell">
+        <span class="meta-cell-label">Scale</span>
+        <span class="meta-cell-val">1 : 500</span>
+      </div>
+      <div class="meta-cell">
+        <span class="meta-cell-label">Date</span>
+        <span class="meta-cell-val">30 Aug 2026</span>
+      </div>
+      <div class="meta-cell">
+        <span class="meta-cell-label">Sheet</span>
+        <span class="meta-cell-val">1 of 1</span>
+      </div>
+      <div class="notes-cell">
+        <span class="meta-cell-label">Notes</span>
+        <span class="meta-cell-val">Demo auth - admin@airtrack.demo / AirTrack@123</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Parse query params for redirect errors
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('error');
+    const errorAlert = document.getElementById('error-alert');
+    if (err && errorAlert) {
+      errorAlert.style.display = 'block';
+      if (err === 'denied') {
+        errorAlert.textContent = "Access denied — this Google account is not authorized for AirTrack Operations.";
+      } else {
+        errorAlert.textContent = err;
+      }
+    }
+
+    // Password visibility toggle
+    const pwdInput = document.getElementById('admin-password');
+    const pwdToggle = document.getElementById('btn-toggle-password');
+    if (pwdToggle && pwdInput) {
+      pwdToggle.addEventListener('click', () => {
+        const isPwd = pwdInput.type === 'password';
+        pwdInput.type = isPwd ? 'text' : 'password';
+        pwdToggle.textContent = isPwd ? 'Hide' : 'Show';
+      });
+    }
+
+    // Submit listener
+    const adminLoginForm = document.getElementById('admin-login-form');
+    const btnSubmit = document.getElementById('btn-submit');
+
+    if (adminLoginForm) {
+      adminLoginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        btnSubmit.disabled = true;
+        const btnText = btnSubmit.querySelector('span');
+        btnText.textContent = "Authenticating...";
+
+        errorAlert.style.display = 'none';
+
+        const email = document.getElementById('admin-email').value.trim();
+        const password = pwdInput.value;
+
+        // Bounded delay to simulate control center authorization check
+        setTimeout(async () => {
+          const auth = await loginAdmin(email, password);
+          if (auth.success) {
+            const dest = sessionStorage.getItem('airtrack_admin_redirect_dest') || '/admin/index.html';
+            sessionStorage.removeItem('airtrack_admin_redirect_dest');
+            window.location.href = dest;
+          } else {
+            errorAlert.style.display = 'block';
+            errorAlert.textContent = auth.error;
+            btnSubmit.disabled = false;
+            btnText.textContent = "Access Operations";
+          }
+        }, 850);
+      });
+    }
+
+    // Google Sign-In Trigger
+    const btnGoogleLogin = document.getElementById('btn-google-login');
+    if (btnGoogleLogin) {
+      btnGoogleLogin.addEventListener('click', async () => {
+        if (errorAlert) errorAlert.style.display = 'none';
+        const btnText = btnGoogleLogin.querySelector('span');
+        const origText = btnText ? btnText.textContent : "Access with Google";
+        if (btnText) btnText.textContent = "Connecting to Google...";
+        btnGoogleLogin.disabled = true;
+
+        const auth = await loginWithGoogleOAuth('admin');
+        if (!auth.success) {
+          if (errorAlert) {
+            errorAlert.style.display = 'block';
+            errorAlert.textContent = auth.error || "Google access could not be initiated.";
+          }
+          if (btnText) btnText.textContent = origText;
+          btnGoogleLogin.disabled = false;
+        }
+      });
+    }
+  </script>
+</body>
+</html>
